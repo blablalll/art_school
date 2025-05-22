@@ -1,0 +1,819 @@
+<!-- public/records.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Своими Руками - Записи</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .autocomplete-list {
+      display: none;
+      position: absolute;
+      border: 1px solid #ccc;
+      background: white;
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+    .autocomplete-list.show {
+      display: block;
+    }
+    .autocomplete-list li {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .autocomplete-list li:hover {
+      background-color: #f0f0f0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: green;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      z-index: 1000;
+      animation: fadeToast 0.3s ease forwards;
+    }
+    .toast.error {
+      background: red;
+    }
+    @keyframes fadeToast {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 20%;
+      left: 30%;
+      width: 40%;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+      border-radius: 8px;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+
+    .filter-form {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+    .form-inline {
+      display: flex;
+      gap: 15px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .input-group {
+      flex: 1 1 200px;
+      min-width: 200px;
+    }
+    .input-group label {
+      font-size: 0.9em;
+      color: #000;
+    }
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .filter-form button {
+      padding: 8px 16px;
+      white-space: nowrap;
+      background-color: #c1c6f1;
+      color: black;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filter-form button:hover {
+      background-color: #fff1e5;
+    }
+
+    .lessons-table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .lessons-table thead {
+      background-color: #f5f5f5;
+    }
+    .lessons-table th,
+    .lessons-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    .lessons-table th {
+      cursor: pointer;
+      color: #000000;
+      font-weight: normal;
+    }
+    .sort-indicator {
+      margin-left: 5px;
+      font-size: 0.9em;
+      color: #000000;
+    }
+
+    .record-form {
+      margin-bottom: 20px;
+    }
+
+    .record-form button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+
+  </style>
+</head>
+<body>
+<div class="header">
+  <img src="/pictures/logo.jpg" alt="Логотип" style="height: 40px; margin-right: 15px;">
+  <h1>Своими Руками</h1>
+  <div class="user-greeting" id="userGreeting">Загрузка...</div>
+</div>
+  <nav class="menu">
+    <a href="/schedule.html">Расписание</a>
+    <a href="/clients.html">Клиенты</a>
+    <a href="/teachers.html">Преподаватели</a>
+    <a href="/abonim.html">Абонементы</a>
+    <a href="/sections.html">Секции</a>
+    <a href="/records.html" class="active">Записи</a>
+    <a href="/login.html" class="logout-button">Выйти</a>
+  </nav>
+
+  <div class="container">
+    <div id="toastContainer"></div>
+
+    <!-- Форма добавления записи -->
+    <div class="record-form">
+      <h3>Добавить запись</h3>
+      <div class="form-grid">
+        <!-- Расписание -->
+        <div class="input-group autocomplete-wrapper">
+          <label for="scheduleInput">Выберите занятие из расписания</label>
+          <input type="text" id="scheduleInput" placeholder="Введите ФИО преподавателя"
+                 oninput="handleScheduleInput(this.value)" onfocus="handleScheduleInput(this.value)">
+          <ul id="scheduleSuggestions" class="autocomplete-list"></ul>
+          <input type="hidden" id="scheduleId">
+        </div>
+        <!-- Клиент -->
+        <div class="input-group autocomplete-wrapper">
+          <label for="clientInput">Клиент</label>
+          <input type="text" id="clientInput" placeholder="Начните вводить имя клиента"
+                 oninput="handleClientInput(this.value)" onfocus="handleClientInput(this.value)">
+          <input type="hidden" id="clientId">
+          <ul id="clientSuggestions" class="autocomplete-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Кнопка "Добавить запись" отдельно -->
+    <div style="margin-bottom: 20px;">
+      <button onclick="addRecord()">Добавить запись</button>
+    </div>
+
+<!-- Форма фильтров -->
+<div class="filter-form inline-filter-form">
+  <h3>Фильтр</h3>
+  <div class="form-inline">
+    <!-- Дата -->
+    <div class="input-group">
+      <label for="filterDate">Дата</label>
+      <input type="date" id="filterDate" onchange="debouncedFilter()">
+    </div>
+    <!-- Секция -->
+    <div class="input-group autocomplete-wrapper">
+      <label for="filterSectionInput">Секция</label>
+      <input type="text" id="filterSectionInput" placeholder="Название секции"
+             oninput="handleSectionFilterInput(this.value)" onfocus="handleSectionFilterInput(this.value)">
+      <ul id="filterSectionSuggestions" class="autocomplete-list"></ul>
+    </div>
+    <!-- Клиент -->
+    <div class="input-group autocomplete-wrapper">
+      <label for="filterClientInput">Клиент</label>
+      <input type="text" id="filterClientInput" placeholder="Имя клиента"
+             oninput="handleClientFilterInput(this.value)" onfocus="handleClientFilterInput(this.value)">
+      <ul id="filterClientSuggestions" class="autocomplete-list"></ul>
+    </div>
+    <!-- Кнопка сброса -->
+    <button type="button" onclick="resetFilters()">Сбросить фильтры</button>
+  </div>
+</div>
+
+    <!-- Таблица записей -->
+    <table class="lessons-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('id')">ID <span class="sort-indicator" id="sort-id">↕</span></th>
+          <th onclick="sortBy('date')">Дата и время <span class="sort-indicator" id="sort-date">↕</span></th>
+          <th onclick="sortBy('teacherName')">Преподаватель <span class="sort-indicator" id="sort-teacherName">↕</span></th>
+          <th onclick="sortBy('sectionName')">Секция <span class="sort-indicator" id="sort-sectionName">↕</span></th>
+          <th onclick="sortBy('clientName')">Клиент <span class="sort-indicator" id="sort-clientName">↕</span></th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="recordsList"></tbody>
+    </table>
+
+    <!-- Пагинация -->
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- Модальное окно просмотра клиентов -->
+  <div class="overlay" id="viewClientsOverlay"></div>
+  <div class="modal" id="viewClientsModal">
+    <h3>Клиенты на занятии</h3>
+    <ul id="clientList"></ul>
+    <button onclick="closeViewClients()">Закрыть</button>
+  </div>
+
+  <script>
+    let scheduleDebounce, clientDebounce, filterClientDebounce, filterSectionDebounce, filterDebounce;
+
+    // === Состояние сортировки ===
+    let sortField = 'id';
+    let sortDirection = 'asc';
+
+    // === Форматирование даты и времени ===
+function formatDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return 'Н/Д';
+
+  // Парсим дату и время
+  const [year, month, day] = dateStr.split('T')[0].split('-');
+  const [hours, minutes] = timeStr.split('T')[1]?.split(':') || timeStr.split(':');
+
+  // Собираем в понятный формат
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+}
+
+
+    // === Автозаполнение расписания ===
+    async function handleClientInput(query) {
+  clearTimeout(clientDebounce);
+  const input = document.getElementById("clientInput");
+  const suggestions = document.getElementById("clientSuggestions");
+
+  if (!query.trim()) {
+    suggestions.classList.remove("show");
+    return;
+  }
+
+  clientDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(query)}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        throw new Error(`Ошибка загрузки: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const clients = Array.isArray(data) ? data : (data.data || []);
+
+      suggestions.innerHTML = "";
+      if (!clients.length) {
+        suggestions.insertAdjacentHTML("beforeend", `<li>Не найдено</li>`);
+        suggestions.classList.add("show");
+        return;
+      }
+
+      clients.forEach(client => {
+        const fullName = client.full_name || client.fullName || client.name || 'Без имени';
+        const li = document.createElement("li");
+        li.textContent = fullName;
+        li.onclick = () => {
+          input.value = fullName;
+          document.getElementById("clientId").value = client.id;
+          suggestions.classList.remove("show");
+        };
+        suggestions.appendChild(li);
+      });
+
+      suggestions.classList.add("show");
+    } catch (err) {
+      console.error("Ошибка поиска клиентов:", err);
+      suggestions.innerHTML = `<li style="color:red;">Ошибка загрузки</li>`;
+      suggestions.classList.add("show");
+    }
+  }, 300);
+}
+  // === Закрытие выпадающих списков вне клика ===
+  setupOutsideClickClose(".autocomplete-wrapper", "#scheduleSuggestions");
+  setupOutsideClickClose(".autocomplete-wrapper", "#clientSuggestions");
+  setupOutsideClickClose(".autocomplete-wrapper", "#filterClientSuggestions");
+  setupOutsideClickClose(".autocomplete-wrapper", "#filterSectionSuggestions");
+    // === Добавление записи ===
+    async function addRecord() {
+      const scheduleId = document.getElementById("scheduleId").value;
+      const clientId = document.getElementById("clientId").value;
+      if (!scheduleId || !clientId) {
+        showToast("Выберите занятие и клиента", "error");
+        return;
+      }
+      try {
+        const response = await fetch("/api/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scheduleId, clientId })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Ошибка создания записи");
+        showToast("Запись успешно создана", "success");
+        clearForm();
+        loadRecords();
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+    }
+
+    // === Очистка формы ===
+    function clearForm() {
+      document.getElementById("scheduleInput").value = "";
+      document.getElementById("scheduleId").value = "";
+      document.getElementById("clientInput").value = "";
+      document.getElementById("clientId").value = "";
+    }
+
+    // === Всплывающее сообщение ===
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerText = message;
+      document.getElementById("toastContainer").appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // === Загрузка записей ===
+    async function loadRecords(page = 1, filters = {}) {
+  try {
+    // Базовый URL для запроса
+    const url = new URL('/api/records', window.location.origin);
+
+    // Добавляем параметры пагинации
+    url.searchParams.set('page', page);
+
+    // Добавляем параметры сортировки
+    url.searchParams.set('sortField', sortField);
+    url.searchParams.set('sortDirection', sortDirection);
+
+    // Добавляем фильтры из объекта filters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+    });
+
+    // Выполняем запрос
+    const res = await fetch(url);
+
+    // Проверяем статус ответа
+    if (!res.ok) {
+      throw new Error("HTTP ошибка: " + res.status);
+    }
+
+    // Парсим JSON
+    const data = await res.json();
+
+    // Если сервер вернул success: false — выбрасываем ошибку
+    if (!data.success) {
+      throw new Error(data.message || "Ошибка загрузки записей");
+    }
+
+    // Рендерим данные в таблицу
+    renderRecords(data);
+
+    // Обновляем пагинацию
+    updatePagination(data);
+
+    // Обновляем индикаторы сортировки
+    updateSortIndicators();
+  } catch (err) {
+    console.error("Ошибка при загрузке записей:", err);
+    showToast("Не удалось загрузить записи. Попробуйте позже.", "error");
+  }
+}
+
+    // === Отображение записей ===
+    function renderRecords(data) {
+      const tbody = document.getElementById("recordsList");
+      tbody.innerHTML = "";
+      if (!data.data || !data.data.length) {
+        tbody.innerHTML = `<tr><td colspan="6">Нет данных</td></tr>`;
+        return;
+      }
+      data.data.forEach(record => {
+        const row = `
+          <tr>
+            <td>${record.id}</td>
+            <td>${formatDateTime(record.date, record.startTime)}</td>
+            <td>${record.teacherName}</td>
+            <td>${record.sectionName}</td>
+            <td>${record.clientName}</td>
+            <td>
+              <button onclick="viewClients(${record.scheduleId})">👁️</button>
+              <button onclick="deleteRecord(${record.id})">🗑️</button>
+            </td>
+          </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+    }
+
+    // === Удаление записи ===
+    async function deleteRecord(id) {
+      if (!confirm("Вы уверены?")) return;
+      try {
+        const res = await fetch(`/api/records/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Ошибка удаления");
+        showToast("Запись удалена");
+        loadRecords();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
+    // === Модальное окно просмотра клиентов ===
+    async function viewClients(scheduleId) {
+      const modal = document.getElementById("viewClientsModal");
+      const overlay = document.getElementById("viewClientsOverlay");
+      const list = document.getElementById("clientList");
+      modal.style.display = "block";
+      overlay.style.display = "block";
+      list.innerHTML = "Загрузка...";
+      try {
+        const res = await fetch(`/api/schedule/${scheduleId}/clients`);
+        const data = await res.json();
+        list.innerHTML = "";
+        if (!data.data || !data.data.length) {
+          list.innerHTML = "<li>На это занятие ещё никто не записался.</li>";
+          return;
+        }
+        data.data.forEach(client => {
+          const li = document.createElement("li");
+          li.textContent = client.full_name;
+          list.appendChild(li);
+        });
+      } catch (err) {
+        list.innerHTML = `<li style="color:red;">Ошибка загрузки</li>`;
+      }
+    }
+
+    function closeViewClients() {
+      document.getElementById("viewClientsModal").style.display = "none";
+      document.getElementById("viewClientsOverlay").style.display = "none";
+      document.getElementById("clientList").innerHTML = "";
+    }
+
+    // === Сортировка ===
+    function sortBy(field) {
+      if (sortField === field) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortDirection = 'asc';
+      }
+      loadRecords(1);
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll(".sort-indicator").forEach(el => el.textContent = "↕");
+      const indicator = document.querySelector(`#sort-${sortField}`);
+      if (indicator) {
+        indicator.textContent = sortDirection === 'asc' ? "↑" : "↓";
+      }
+    }
+
+    // === Пагинация ===
+function updatePagination(data) {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+  
+  // Получаем данные пагинации
+  const currentPage = data.currentPage || 1;
+  const totalPages = data.totalPages || 1;
+  
+  // Получаем текущие значения фильтров
+  const activeFilters = {
+    clientName: document.getElementById('filterClientInput')?.value.trim() || '',
+    sectionName: document.getElementById('filterSectionInput')?.value.trim() || '',
+    scheduleDate: document.getElementById('filterDate')?.value.trim() || '' // Исправленный ключ
+  };
+
+  // Создаем кнопку "Назад"
+  const prevBtn = document.createElement("button");
+  prevBtn.innerHTML = "&laquo;";
+  prevBtn.disabled = currentPage <= 1;
+  prevBtn.addEventListener("click", () => {
+    loadRecords(currentPage - 1, activeFilters);
+  });
+  pagination.appendChild(prevBtn);
+
+  // Генерация номеров страниц
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, currentPage + 2);
+  
+  for (let i = startPage; i <= endPage; i++) {
+    const pageBtn = document.createElement("button");
+    pageBtn.textContent = i;
+    
+    if (i === currentPage) {
+      pageBtn.classList.add("active");
+      pageBtn.disabled = true;
+    }
+    
+    pageBtn.addEventListener("click", () => {
+      loadRecords(i, activeFilters);
+    });
+    
+    pagination.appendChild(pageBtn);
+  }
+
+  // Создаем кнопку "Вперед"
+  const nextBtn = document.createElement("button");
+  nextBtn.innerHTML = "&raquo;";
+  nextBtn.disabled = currentPage >= totalPages;
+  nextBtn.addEventListener("click", () => {
+    loadRecords(currentPage + 1, activeFilters);
+  });
+  pagination.appendChild(nextBtn);
+
+  // Стилизация для активной кнопки
+  const style = document.createElement("style");
+  
+  pagination.appendChild(style);
+}
+    // === Автокомплит для фильтра клиентов ===
+    async function handleClientFilterInput(query) {
+      clearTimeout(filterClientDebounce);
+      const suggestions = document.getElementById("filterClientSuggestions");
+      filterClientDebounce = setTimeout(async () => {
+        if (!query.trim()) {
+          suggestions.innerHTML = "";
+          return;
+        }
+        try {
+          const res = await fetch(`/api/clients?search=${encodeURIComponent(query)}&limit=50`);
+          const data = await res.json();
+          const clients = Array.isArray(data) ? data : (data.data || []);
+          suggestions.innerHTML = "";
+          if (!clients.length) {
+            suggestions.insertAdjacentHTML("beforeend", `<li>Не найдено</li>`);
+            return;
+          }
+          clients.forEach(client => {
+            const fullName = client.fullName || client.full_name || client.name || 'Без имени';
+            const li = document.createElement("li");
+            li.textContent = fullName;
+            li.onclick = () => {
+              document.getElementById("filterClientInput").value = fullName;
+              suggestions.innerHTML = "";
+              debouncedFilter();
+            };
+            suggestions.appendChild(li);
+          });
+          suggestions.classList.add("show");
+        } catch (err) {
+          suggestions.innerHTML = `<li style="color:red;">Ошибка</li>`;
+        }
+      }, 300);
+    }
+
+    // === Автокомплит для фильтра секций ===
+    async function handleSectionFilterInput(query) {
+      clearTimeout(filterSectionDebounce);
+      const suggestions = document.getElementById("filterSectionSuggestions");
+      filterSectionDebounce = setTimeout(async () => {
+        if (!query.trim()) {
+          suggestions.innerHTML = "";
+          return;
+        }
+        try {
+          const res = await fetch(`/api/sections?search=${encodeURIComponent(query)}&limit=50`);
+          const data = await res.json();
+          const sections = Array.isArray(data) ? data : (data.data || []);
+          suggestions.innerHTML = "";
+          if (!sections.length) {
+            suggestions.insertAdjacentHTML("beforeend", `<li>Не найдено</li>`);
+            return;
+          }
+          sections.forEach(section => {
+            const name = section.name || 'Без названия';
+            const li = document.createElement("li");
+            li.textContent = name;
+            li.onclick = () => {
+              document.getElementById("filterSectionInput").value = name;
+              suggestions.innerHTML = "";
+              debouncedFilter();
+            };
+            suggestions.appendChild(li);
+          });
+          suggestions.classList.add("show");
+        } catch (err) {
+          suggestions.innerHTML = `<li style="color:red;">Ошибка</li>`;
+        }
+      }, 300);
+    }
+
+
+    // === Фильтрация с debounce ===
+function debouncedFilter() {
+  clearTimeout(filterDebounce);
+  filterDebounce = setTimeout(() => {
+    const filters = {
+      client: document.getElementById('filterClientInput').value.trim(),
+      section: document.getElementById('filterSectionInput').value.trim(),
+      date: document.getElementById('filterDate').value.trim() 
+    };
+    loadRecords(1, filters); // Загрузка с первой страницы и новыми фильтрами
+  }, 300);
+}
+
+    // === Сброс фильтров ===
+    function resetFilters() {
+      location.reload();
+    }
+
+    // === Инициализация ===
+    window.onload = () => {
+      loadRecords();
+    };
+   function setupOutsideClickClose(wrapperSelector, suggestionsSelector) {
+  document.addEventListener("click", function handleClickOutside(e) {
+    const wrapper = document.querySelector(wrapperSelector);
+    const suggestions = document.querySelector(suggestionsSelector);
+    if (!wrapper || !suggestions) return;
+    if (!wrapper.contains(e.target)) {
+      suggestions.classList.remove("show");
+    }
+  });
+}
+
+
+async function handleScheduleInput(query) {
+  clearTimeout(scheduleDebounce);
+  const input = document.getElementById("scheduleInput");
+  const suggestions = document.getElementById("scheduleSuggestions");
+
+  // Показываем подсказки даже при пустом запросе
+  suggestions.classList.toggle("show", !!query.trim());
+
+  scheduleDebounce = setTimeout(async () => {
+    try {
+      const url = new URL('/api/schedule', window.location.origin);
+      url.searchParams.set('search', query.trim());
+      url.searchParams.set('searchFields', 'teacherName,sectionName');
+      url.searchParams.set('limit', 50);
+
+      const res = await fetch(url, { credentials: 'include' });
+      
+      if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+      const data = await res.json();
+      
+      const lessons = Array.isArray(data) ? data : data?.data || [];
+      renderScheduleSuggestions(lessons);
+
+    } catch (err) {
+      console.error("Ошибка поиска:", err);
+      suggestions.innerHTML = `
+        <li class="error-msg">
+          ⚠️ Ошибка загрузки: ${err.message}
+        </li>
+      `;
+    }
+  }, 300);
+}
+function renderScheduleSuggestions(lessons) {
+  const suggestions = document.getElementById("scheduleSuggestions");
+  const input = document.getElementById("scheduleInput");
+  
+  suggestions.innerHTML = "";
+
+  if (lessons.length === 0) {
+    suggestions.innerHTML = `
+      <li class="no-results">
+        🕵️ Не найдено занятий по запросу "${input.value}"
+      </li>
+    `;
+    return;
+  }
+
+  lessons.forEach(lesson => {
+    const li = document.createElement("li");
+    li.className = "schedule-suggestion";
+    
+    // Форматирование даты и времени
+    const dateObj = new Date(lesson.date);
+    const date = dateObj.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    
+    const time = lesson.startTime?.slice(0, 5) || '--:--';
+
+    li.innerHTML = `
+      <div class="suggestion-main">
+        <span class="teacher-name">${lesson.teacherName || 'Не указан'}</span>
+        <span class="section-name">${lesson.sectionName || 'Без секции'}</span>
+      </div>
+      <div class="suggestion-details">
+        <span class="datetime">📅 ${date}</span>
+        <span class="datetime">⏰ ${time}</span>
+      </div>
+    `;
+
+    li.onclick = () => {
+      input.value = `${lesson.teacherName} - ${lesson.sectionName}`;
+      document.getElementById("scheduleId").value = lesson.id;
+      suggestions.classList.remove("show");
+    };
+
+    suggestions.appendChild(li);
+  });
+}
+// Вызовы для всех полей автозаполнения
+setupOutsideClickClose(".autocomplete-wrapper", "#scheduleSuggestions");
+setupOutsideClickClose(".autocomplete-wrapper", "#clientSuggestions");
+async function getUserInfo() {
+  try {
+    const response = await fetch('/api/auth/check', {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      sessionStorage.removeItem("isAuthenticated");
+      window.location.href = "/login.html";
+      return null;
+    }
+    const data = await response.json();
+    return data.user || null;
+  } catch (error) {
+    console.error('Ошибка получения данных пользователя:', error);
+    sessionStorage.removeItem("isAuthenticated");
+    window.location.href = "/login.html";
+    return null;
+  }
+}
+function displayUserInfo(user) {
+  const greetingElement = document.getElementById('userGreeting');
+  if (!greetingElement) return;
+  let roleText = '';
+  if (user.role === 'admin') {
+    roleText = user.type === 'subadmin' ? 'младший администратор' : 'старший администратор';
+  } else {
+    roleText = user.role;
+  }
+  greetingElement.innerHTML = `Добро пожаловать, ${roleText}`;
+}
+function toggleMenuVisibility(user) {
+  const teachersLink = document.querySelector('nav.menu a[href="/teachers.html"]');
+  const sectionsLink = document.querySelector('nav.menu a[href="/sections.html"]');
+  if (user.role === 'admin' && user.type === 'subadmin') {
+    if (teachersLink) teachersLink.style.display = 'none';
+    if (sectionsLink) sectionsLink.style.display = 'none';
+  }
+}
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await getUserInfo();
+  if (!user) return;
+  displayUserInfo(user);
+  toggleMenuVisibility(user);
+});
+function highlight(text, query) {
+  if (!query) return text;
+  const regex = new RegExp(query, 'gi');
+  return text.replace(regex, match => `<b>${match}</b>`);
+}
+function getActiveFilters() {
+  return {
+    client: document.getElementById('filterClientInput').value.trim(),
+    section: document.getElementById('filterSectionInput').value.trim(),
+    date: document.getElementById('filterDate').value.trim()
+  };
+}
+  </script>
+</body>
+</html

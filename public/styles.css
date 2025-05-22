@@ -1,0 +1,715 @@
+:root {
+  --primary: #f2fcff;    
+  --secondary: #c1c6f1;  
+  --accent: #fff1e5;     
+  --border-color: #ddd;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --background-overlay: rgba(255, 255, 255, 0.85);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  background-color: var(--primary);
+  color: var(--text-color);
+}
+
+/* Красивый фон с полупрозрачностью */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/pictures/fon.jpg'); /* Путь к изображению */
+  background-size: cover;
+  background-position: center;
+  opacity: 0.3;
+  z-index: -1;
+}
+
+/* ================== Шапка ================== */
+
+.header {
+  background-color: var(--secondary); /* Фиолетовый фон */
+  padding: 20px;
+  text-align: center;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: rgb(0, 0, 0); /*  текст заголовка */
+  font-weight: 600;
+}
+
+/* ================== Меню ================== */
+
+.menu {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap; /* Разрешаем перенос элементов */
+  background-color: var(--accent);
+  padding: 10px 20px; /* Добавляем отступы по бокам */
+  gap: 15px;
+}
+
+
+
+.menu::-webkit-scrollbar {
+  display: none; /* Убираем скроллбар в Chrome/Safari */
+}
+
+.menu a {
+  text-decoration: none;
+  color: #000; /* Чёрный текст */
+  padding: 8px 16px;
+  border-radius: 25px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.menu a:hover {
+  background-color: #f3b75d; /* Яркий оранжевый */
+  color: rgb(0, 0, 0);
+}
+
+/* Активная вкладка - фиолетовый */
+.menu a.active {
+  background-color: var(--secondary); /* Фиолетовый из переменной */
+  color: rgb(2, 0, 0);
+}
+
+.logout-button {
+  margin-left: 0;
+  color: black;
+  border: 2px solid var(--secondary); /* Фиолетовая рамка */
+  background-color: transparent; /* Прозрачный фон */
+  transition: all 0.3s ease; /* Плавные переходы */
+  padding: 6px 14px; /* Немного уменьшаем паддинг для рамки */
+}
+
+.logout-button:hover {
+  background-color: #f3b75d;
+  color: rgb(0, 0, 0) !important; /* Белый текст при наведении */
+  border-color: transparent; /* Убираем рамку при наведении */
+}
+
+
+/* ================== Контейнер ================== */
+
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: var(--background-overlay);
+  border-radius: 10px;
+  box-shadow: 0 5px 15px var(--shadow-color);
+  position: relative;
+  z-index: 1;
+}
+
+/* ================== Уведомления (Toast) ================== */
+
+#toastContainer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+}
+
+.toast {
+  padding: 12px 20px;
+  border-radius: 6px;
+  color: white;
+  font-weight: 500;
+  animation: slideIn 0.3s ease-out, fadeOut 3s forwards 2.7s;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.toast.success {
+  background-color: #4caf50;
+}
+
+.toast.error {
+  background-color: #f44336;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; }
+}
+
+/* ================== Формы ================== */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group label {
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+input,
+button,
+select,
+textarea {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 2px rgba(193, 198, 241, 0.3);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #aaa;
+}
+
+button {
+  background-color: var(--secondary);
+  color: black;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--accent);
+}
+
+/* ================== Таблицы ================== */
+
+.clients-table,
+.teachers-table,
+.sections-table,
+.subscriptions-table,
+.schedule-table,
+.lessons-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  box-shadow: 0 2px 5px var(--shadow-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.clients-table th,
+.teachers-table th,
+.sections-table th,
+.subscriptions-table th,
+.schedule-table th,
+.lessons-table th {
+  background-color: var(--accent);
+  padding: 16px;
+  text-align: left;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.clients-table td,
+.teachers-table td,
+.sections-table td,
+.subscriptions-table td,
+.schedule-table td,
+.lessons-table td {
+  padding: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+.clients-table tr:hover td,
+.teachers-table tr:hover td,
+.sections-table tr:hover td,
+.subscriptions-table tr:hover td,
+.schedule-table tr:hover td,
+.lessons-table tr:hover td {
+  background-color: #fcf3e9;
+}
+
+.clients-table tr.editing td,
+.teachers-table tr.editing td,
+.sections-table tr.editing td,
+.subscriptions-table tr.editing td,
+.schedule-table tr.editing td,
+.lessons-table tr.editing td {
+  background-color: rgba(157, 166, 255, 0.2) !important; /* Нежно-фиолетовый */
+  position: relative;
+}
+
+.clients-table tr.editing td::after,
+.teachers-table tr.editing td::after,
+.sections-table tr.editing td::after,
+.subscriptions-table tr.editing td::after,
+.schedule-table tr.editing td::after,
+.lessons-table tr.editing td::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 1px dashed var(--secondary);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+}
+
+/* ================== Фильтры ================== */
+
+.filter-section {
+  margin-top: 30px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.reset-button {
+  background-color: var(--secondary) !important; /* Фиолетовый цвет */
+  color: black !important; /* Черный текст */
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.reset-button:hover {
+  background-color: #fff1e5 !important; 
+  color: white !important;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.filter-row .input-group {
+  flex: 1 1 200px;
+}
+
+/* ================== ПАГИНАЦИЯ ================== */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pagination button {
+  padding: 8px 12px;
+  background-color: #ddd; /* Серый по умолчанию */
+  color: #000; /* Чёрный текст */
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Активная кнопка (текущая страница) */
+.pagination button.active {
+  background-color: rgb(173, 156, 233);
+  color: #000; /* Чёрный текст */
+  font-weight: bold;
+}
+
+/* Наведение на обычные кнопки */
+.pagination button:not(.active):hover {
+  background-color: var(--accent); /* Бежевый при наведении */
+  color: #000; /* Текст остаётся чёрным */
+}
+
+/* Стрелки ← и → */
+.pagination button[disabled] {
+  background-color: #aaa; /* Серый */
+  color: #000; /* Чёрный текст */
+}
+
+/* Наведение на стрелки */
+.pagination button[disabled]:hover {
+  background-color: #f3b75d; /* Оранжевый при наведении */
+  color: #000; /* Текст остаётся чёрным */
+}
+
+
+
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: none;
+  list-style: none;
+  padding: 0;
+}
+
+.autocomplete-list.show {
+  display: block;
+}
+
+.autocomplete-list li {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.autocomplete-list li:hover,
+.autocomplete-list li:focus {
+  background-color: var(--accent); /* Бежевый при наведении */
+}
+
+.autocomplete-list li.active {
+  background-color: #e67e22; /* Оранжевый при клике */
+  color: white;
+}
+
+/* ================== Действия в таблицах ================== */
+
+.actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin: 0 3px;
+}
+
+.actions button:hover {
+  opacity: 0.7;
+}
+.filter-row {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+}
+
+.filter-row .input-group {
+  margin-bottom: 0;
+}
+
+#saveButton,
+.reset-button {
+  background-color: var(--secondary) !important; /* Фиолетовый фон */
+  color: black !important; /* Черный текст */
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#saveButton:hover,
+.reset-button:hover {
+  background-color: var(--accent) !important; /* Бежевый при наведении */
+  color: black !important;
+
+}
+.reset-button {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  transition: all 0.3s ease;
+}
+.filter-section.small-filter {
+  max-width: 100%;
+  margin-top: 20px;
+}
+/* ================== Выпадающие списки (select) ================== */
+select {
+  -webkit-appearance: none; /* Убираем стандартную стрелку */
+  -moz-appearance: none;
+  appearance: none;
+  background-color: white;
+  padding-right: 30px; /* Для кастомной стрелки */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23666' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 2px rgba(193, 198, 241, 0.3);
+}
+
+/* ================== Даталист автозаполнения ================== */
+
+.autocomplete-input {
+  position: relative;
+}
+
+.autocomplete-input input[list] {
+  padding-right: 40px; /* Чтобы не наезжал значок */
+}
+
+/* Стиль для datalist */
+datalist {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+datalist option {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+datalist option:hover,
+datalist option:focus {
+  background-color: var(--accent); /* Бежевый при наведении */
+}
+
+/* ================== Кастомная прокрутка для datalist (опционально) ================== */
+datalist::-webkit-scrollbar {
+  width: 8px;
+}
+
+datalist::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+datalist::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+datalist::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+datalist {
+  background-color: white !important;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 9999;
+}
+
+datalist option {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #333;
+}
+
+datalist option:hover,
+datalist option:focus {
+  background-color: var(--accent);
+}
+/* === Автокомплит === */
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 9999;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.autocomplete-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.autocomplete-list li:hover,
+.autocomplete-list li:focus {
+  background-color: var(--accent);
+}
+
+.autocomplete-list .disabled {
+  color: #999;
+  cursor: default;
+  background-color: transparent;
+}
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 9999;
+  margin-top: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.autocomplete-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.autocomplete-list li:hover,
+.autocomplete-list li:focus {
+  background-color: var(--accent);
+}
+
+.autocomplete-list .disabled {
+  color: #999;
+  background-color: transparent;
+  cursor: default;
+}
+.autocomplete-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+.autocomplete-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.autocomplete-item:hover {
+  background: #f5f5f5;
+}
+
+.autocomplete-item.hint {
+  font-size: 0.9em;
+  color: #666;
+  cursor: default;
+}
+
+.clients-table tr.editing td {
+  background-color: #e6e6fa !important; /* Светло-фиолетовый фон */
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+
+
+/* Анимация подсветки */
+.clients-table tr.editing td {
+  animation: pulse 2s infinite;
+}
+
+.status {
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 15px;
+  display: inline-block;
+  color: rgb(0, 0, 0) !important;
+  text-align: center;
+  min-width: 60px;
+  /* Отключаем все переходы */
+  transition: none !important;
+}
+
+
+
+.status.full {
+  background-color: #e67e22; /* Оранжевый */
+}
+
+.status.full:hover{
+  background-color: #e67e22; /* Оранжевый */
+}
+
+.status.available {
+  background-color: #2ecc71; /* Зелёный */
+}
+.status.available:hover {
+  background-color: #2ecc71; /* Зелёный */
+}

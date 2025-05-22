@@ -1,0 +1,526 @@
+<!-- public/clients.html -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Своими Руками - Клиенты</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- Шапка -->
+<div class="header">
+  <img src="/pictures/logo.jpg" alt="Логотип" style="height: 40px; margin-right: 15px;" />
+  <h1>Своими Руками</h1>
+  <!-- Приветствие справа -->
+  <div class="user-greeting" id="userGreeting">Загрузка...</div>
+</div>
+
+<!-- Меню -->
+<nav class="menu">
+  <a href="/schedule.html">Расписание</a>
+  <a href="/clients.html" class="active">Клиенты</a>
+  <!-- Эти ссылки будут скрыты для младшего админа -->
+  <a href="/teachers.html" id="teachersLink">Преподаватели</a>
+  <a href="/sections.html" id="sectionsLink">Секции</a>
+  <a href="/abonim.html">Абонементы</a>
+  <a href="/records.html">Записи</a>
+  <a href="/login.html" class="logout-button">Выйти</a>
+</nav>
+
+<!-- Основной контент -->
+<div class="container">
+  <!-- Сообщения -->
+  <div id="toastContainer"></div>
+
+  <!-- Форма добавления клиента -->
+  <div class="client-form">
+    <h3 id="formTitle">Добавить нового клиента</h3>
+    <div class="form-grid">
+      <div class="input-group">
+        <label for="clientId">ID</label>
+        <input type="text" id="clientId" disabled placeholder="Автоматически" />
+      </div>
+      <div class="input-group">
+        <label for="fullName">ФИО</label>
+        <input type="text" id="fullName" placeholder="Введите ФИО" required />
+      </div>
+      <div class="input-group">
+        <label for="phone">Телефон</label>
+        <input type="tel" id="phone" placeholder="Введите номер телефона" required />
+      </div>
+      <div class="input-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="Введите email" required />
+      </div>
+    </div>
+    <button id="saveButton" onclick="addClient()">Добавить клиента</button>
+  </div>
+
+  <!-- Фильтры -->
+  <div class="filter-section">
+    <h3>Фильтрация клиентов</h3>
+    <div class="filter-row">
+      <div class="input-group">
+        <input type="text" id="filterName" placeholder="Поиск по ФИО" oninput="filterClients()" />
+      </div>
+      <button onclick="clearFilters()">Сбросить фильтры</button>
+    </div>
+  </div>
+
+  <!-- Таблица клиентов -->
+  <table class="clients-table">
+    <thead>
+      <tr>
+        <th onclick="sortClients('id')">ID <span class="sort-indicator" id="sort-id">↕</span></th>
+        <th onclick="sortClients('fullName')">ФИО <span class="sort-indicator" id="sort-fullName">↕</span></th>
+        <th>Телефон</th>
+        <th>Email</th>
+        <th onclick="sortClients('registrationDate')">Дата регистрации <span class="sort-indicator" id="sort-registrationDate">↕</span></th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody id="clientsList"></tbody>
+  </table>
+
+  <!-- Пагинация -->
+  <div class="pagination" id="pagination"></div>
+</div>
+
+  <script>
+    function checkAuth() {
+      if (!sessionStorage.getItem("isAuthenticated")) {
+        window.location.href = "/login.html";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      checkAuth();
+      updateSortIndicators();
+      loadClients();
+      initFormValidation();
+    });
+
+    // ================== Основные переменные ==================
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let sortField = "id";
+    let sortDirection = "asc";
+    let searchQuery = "";
+
+    // ================== Загрузка данных ==================
+    async function loadClients() {
+      try {
+        const url = new URL("/api/clients", window.location.origin);
+        url.searchParams.append("page", currentPage);
+        url.searchParams.append("limit", itemsPerPage);
+        url.searchParams.append("sort", sortField);
+        url.searchParams.append("order", sortDirection);
+        url.searchParams.append("search", searchQuery);
+
+        const response = await fetch(url, { credentials: "include" });
+
+        if (response.status === 401) {
+          sessionStorage.removeItem("isAuthenticated");
+          window.location.href = "/login.html";
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || "Ошибка загрузки");
+
+        renderClients(data);
+      } catch (error) {
+        showToast(error.message, "error");
+        console.error("Ошибка:", error);
+      }
+    }
+
+    function renderClients(data) {
+      const tbody = document.getElementById("clientsList");
+      tbody.innerHTML = "";
+      if (data.data.length === 0) {
+        const row = `<tr><td colspan="6" class="no-data">Нет данных о клиентах</td></tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+        return;
+      }
+
+      data.data.forEach((client) => {
+        const row = `
+          <tr>
+            <td>${client.id}</td>
+        <td>${client.fullName || client.full_name || client.name || 'Без имени'}</td>
+            <td>${formatPhone(client.phone)}</td>
+            <td>${client.email || "-"}</td>
+            <td>${formatDate(client.registrationDate)}</td>
+            <td class="actions">
+              <button onclick="editClient(${client.id})" title="Редактировать">✏️</button>
+              <button onclick="deleteClient(${client.id})" title="Удалить">🗑️</button>
+            </td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+
+      updatePagination(data);
+    }
+
+    // ================== Управление клиентом ==================
+    async function addClient() {
+      const fullName = document.getElementById("fullName").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const email = document.getElementById("email").value.trim();
+
+      if (!fullName) {
+        showToast("Введите ФИО", "error");
+        return;
+      }
+
+      if (!phone || !/^7\d{10}$/.test(phone)) {
+        showToast("Телефон должен начинаться с 7 и содержать 11 цифр", "error");
+        return;
+      }
+
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast("Неверный формат email", "error");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName, phone, email }),
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || "Ошибка сервера");
+
+        showToast(`Клиент "${fullName}" успешно добавлен`);
+
+        clearForm();
+        loadClients();
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+    }
+
+    async function deleteClient(id) {
+      if (!confirm("Вы уверены, что хотите удалить клиента?")) return;
+
+      try {
+        const response = await fetch(`/api/clients/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || "Ошибка удаления");
+
+        showToast("Клиент удален");
+        loadClients();
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+    }
+
+    async function saveClient(id) {
+      const fullName = document.getElementById("fullName").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const email = document.getElementById("email").value.trim();
+
+      if (!fullName) {
+        showToast("Введите ФИО", "error");
+        return;
+      }
+
+      if (!phone || !/^7\d{10}$/.test(phone)) {
+        showToast("Телефон должен начинаться с 7 и содержать 11 цифр", "error");
+        return;
+      }
+
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast("Неверный формат email", "error");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/clients/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName, phone, email }),
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || "Ошибка сохранения");
+
+        showToast(`Клиент "${fullName}" успешно обновлён`);
+        clearForm();
+        loadClients();
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+    }
+
+    // ================== Фильтр и сортировка ==================
+    function filterClients() {
+      currentPage = 1;
+      searchQuery = document.getElementById("filterName").value;
+      loadClients();
+    }
+
+    function clearFilters() {
+      document.getElementById("filterName").value = "";
+      searchQuery = "";
+      currentPage = 1;
+      loadClients();
+    }
+
+    function sortClients(field) {
+      if (sortField === field) {
+        sortDirection = sortDirection === "asc" ? "desc" : "asc";
+      } else {
+        sortField = field;
+        sortDirection = "asc";
+      }
+      updateSortIndicators();
+      loadClients();
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll(".sort-indicator").forEach((el) => {
+        el.textContent = "↕";
+      });
+      const indicator = document.querySelector(`#sort-${sortField}`);
+      if (indicator) {
+        indicator.textContent = sortDirection === "asc" ? "↑" : "↓";
+      }
+    }
+
+    // ================== Пагинация ==================
+    function updatePagination(data) {
+      const pagination = document.getElementById("pagination");
+      pagination.innerHTML = "";
+
+      const totalPages = data.totalPages || 1;
+      const prevButton = document.createElement("button");
+      prevButton.textContent = "←";
+      prevButton.disabled = currentPage === 1;
+      prevButton.onclick = () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadClients();
+        }
+      };
+      pagination.appendChild(prevButton);
+
+      const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+      pages.forEach((page) => {
+        const button = document.createElement("button");
+        button.textContent = page;
+        button.disabled = page === currentPage;
+        button.onclick = () => {
+          currentPage = page;
+          loadClients();
+        };
+        pagination.appendChild(button);
+      });
+
+      const nextButton = document.createElement("button");
+      nextButton.textContent = "→";
+      nextButton.disabled = currentPage === totalPages;
+      nextButton.onclick = () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          loadClients();
+        }
+      };
+      pagination.appendChild(nextButton);
+    }
+
+    // ================== Вспомогательные функции ==================
+    function initFormValidation() {
+      document.getElementById("phone").addEventListener("input", function (e) {
+        let value = this.value.replace(/\D/g, "");
+        if (value.length > 0 && value[0] !== "7") {
+          value = "7" + value;
+        }
+        value = value.substring(0, 11);
+        this.value = value;
+      });
+    }
+
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = message;
+      toast.style.backgroundColor = type === "error" ? "#f44336" : "#4caf50";
+      document.getElementById("toastContainer").appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function clearForm() {
+      document.getElementById("fullName").value = "";
+      document.getElementById("phone").value = "";
+      document.getElementById("email").value = "";
+      document.getElementById("clientId").value = "";
+      document.getElementById("formTitle").textContent = "Добавить нового клиента";
+      document.getElementById("saveButton").textContent = "Добавить клиента";
+      document.getElementById("saveButton").onclick = addClient;
+
+      document.querySelectorAll(".clients-table tr.editing").forEach((row) => {
+        row.classList.remove("editing");
+      });
+    }
+
+    async function editClient(id) {
+  // Сбрасываем выделение всех строк в таблице клиентов
+  document.querySelectorAll(".clients-table tr.editing").forEach(row => {
+    row.classList.remove("editing");
+  });
+
+  try {
+    const response = await fetch(`/api/clients/${id}`, {
+      credentials: "include",
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Ошибка загрузки данных клиента");
+    }
+
+    const client = await response.json();
+
+    // Заполняем поля формы
+    document.getElementById("fullName").value = client.fullName?.trim() || '';
+    document.getElementById("phone").value = client.phone?.trim() || '';
+    document.getElementById("email").value = client.email?.trim() || '';
+    document.getElementById("clientId").value = client.id || '';
+
+    // Меняем заголовок и кнопку
+    document.getElementById("formTitle").textContent = "Редактирование клиента";
+    document.getElementById("saveButton").textContent = "Сохранить изменения";
+    document.getElementById("saveButton").onclick = () => saveClient(id);
+
+    // Находим строку в таблице и подсвечиваем её
+    const targetRow = Array.from(document.querySelectorAll("#clientsList tr")).find(
+      row => parseInt(row.cells[0].textContent) === id
+    );
+
+    if (targetRow) {
+      targetRow.classList.add("editing"); // Добавляем класс подсветки
+      targetRow.scrollIntoView({ behavior: "smooth", block: "center" }); // Прокручиваем к строке
+    }
+
+  } catch (error) {
+    console.error('Ошибка при редактировании:', error);
+    showToast(`Ошибка: ${error.message}`, "error");
+  }
+}
+
+    function formatDate(dateString) {
+      if (!dateString) return "-";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+
+    function formatPhone(phone) {
+      return phone?.replace(/(\d{1})(\d{3})(\d{3})(\d{2})(\d{2})/, "+$1 ($2) $3-$4-$5");
+    }
+    function clearEditing() {
+  document.querySelectorAll(".clients-table tr.editing").forEach(row => row.classList.remove("editing"));
+}
+async function getUserInfo() {
+    try {
+      const response = await fetch('/api/auth/check', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        sessionStorage.removeItem("isAuthenticated");
+        window.location.href = "/login.html";
+        return null;
+      }
+
+      const data = await response.json();
+      return data.user || null;
+
+    } catch (error) {
+      console.error('Ошибка получения данных пользователя:', error);
+      sessionStorage.removeItem("isAuthenticated");
+      window.location.href = "/login.html";
+      return null;
+    }
+  }
+
+  // Отображает приветствие в правом верхнем углу
+  function displayUserInfo(user) {
+    const greetingElement = document.getElementById('userGreeting');
+    if (!greetingElement) return;
+
+    let roleText = '';
+
+    if (user.role === 'admin') {
+      roleText = user.type === 'subadmin' ? 'младший администратор' : 'старший администратор';
+    } else {
+      roleText = user.role;
+    }
+
+    greetingElement.innerHTML = `Добро пожаловать, ${roleText}`;
+  }
+
+  // Скрывает пункты меню для младшего админа
+function toggleMenuVisibility(user) {
+  // Скрываем ссылки на преподавателей и секций
+  const teachersLink = document.querySelector('nav.menu a[href="/teachers.html"]');
+  const sectionsLink = document.querySelector('nav.menu a[href="/sections.html"]');
+
+  if (user && user.role === 'admin' && user.type === 'subadmin') {
+    if (teachersLink) teachersLink.style.display = 'none';
+    if (sectionsLink) sectionsLink.style.display = 'none';
+  }
+}
+
+  // Показывает уведомления только не для subadmin
+  window.showToast = function(message, type = "success") {
+    const toastContainer = document.getElementById("toastContainer");
+    if (!toastContainer) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }, 100);
+  };
+
+  // Загружаем данные при открытии страницы
+  document.addEventListener("DOMContentLoaded", async () => {
+    const user = await getUserInfo();
+    if (!user) return;
+
+    displayUserInfo(user);
+    toggleMenuVisibility(user);
+  });
+  </script>
+</body>
+</html>

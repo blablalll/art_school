@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Авторизация - Своими Руками</title>
+  <link rel="stylesheet" href="/styles.css" />
+  
+  <!-- Font Awesome для иконок -->
+  <script src="https://kit.fontawesome.com/a2e0b76614.js " crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --primary: #6c63ff;
+      --secondary: #a1a6e0;
+      --danger: #ff4d4d;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .login-container {
+      background: #ffffffee;
+      border-radius: 15px;
+      padding: 30px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      border: 1px solid #ddd;
+      transition: transform 0.3s ease;
+    }
+
+    .login-container:hover {
+      transform: translateY(-5px);
+    }
+
+    .branding {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      width: 70px;
+      height: 70px;
+      margin-bottom: 15px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #333;
+      margin: 0;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .input-group {
+      position: relative;
+    }
+
+    .input-label {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 6px;
+      display: block;
+      font-weight: 500;
+    }
+
+    .auth-form input {
+      width: 100%;
+      padding: 12px 20px 12px 45px;
+      border: 2px solid #e0e3ff;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      background: #f8f9ff;
+    }
+
+    .auth-form input:focus {
+      outline: none;
+      border-color: var(--secondary);
+      background: white;
+      box-shadow: 0 3px 10px rgba(161, 166, 224, 0.2);
+    }
+
+    .icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7a7faf;
+      font-size: 18px;
+      z-index: 1;
+    }
+
+    .auth-button {
+  background: linear-gradient(135deg, #f7e3d1 0%, #dac7fd 100%);
+  color: #4a4a4a;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #ddd;
+  font-weight: bold
+  
+}
+
+.auth-button:hover {
+  background: linear-gradient(135deg, #dac7fd 0%, #f7e3d1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+    .error-message {
+      background-color: var(--danger);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+      margin-top: 15px;
+      font-size: 14px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="branding">
+      <img src="pictures/logo.jpg" alt="Логотип" class="logo" />
+      <h1>Своими Руками</h1>
+    </div>
+
+    <form class="auth-form" id="loginForm">
+      <!-- Логин -->
+      <div class="input-group">
+        <label for="login" class="input-label">Логин</label>
+        <i class="fas fa-user icon"></i>
+        <input type="text" id="login" placeholder="Введите логин" required />
+      </div>
+
+      <!-- Пароль -->
+      <div class="input-group">
+        <label for="password" class="input-label">Пароль</label>
+        <i class="fas fa-lock icon"></i>
+        <input type="password" id="password" placeholder="Введите пароль" required />
+      </div>
+
+      <button type="submit" class="auth-button">
+        <span>Войти</span>
+        <i class="fas fa-arrow-right"></i>
+      </button>
+    </form>
+
+    <div id="errorMessage" class="error-message" style="display: none;"></div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const login = document.getElementById('login').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorMessage = document.getElementById('errorMessage');
+
+      // Очистка предыдущих ошибок
+      errorMessage.style.display = 'none';
+      errorMessage.textContent = '';
+
+      if (!login || !password) {
+        showError('Введите логин и пароль');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username: login, password }),
+          credentials: 'include'
+        });
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        // Проверяем, что ответ — JSON
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          throw new Error(`Неверный формат ответа: ${text.slice(0, 50)}...`);
+        }
+
+        if (response.ok) {
+          sessionStorage.setItem('isAuthenticated', 'true');
+          window.location.href = '/schedule.html';
+        } else {
+          showError(data.error || 'Ошибка авторизации');
+        }
+      } catch (err) {
+        console.error('Ошибка входа:', err);
+        showError(err.message || 'Ошибка подключения к серверу');
+      }
+    });
+
+    function showError(message) {
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 4000);
+    }
+  </script>
+</body>
+</html>

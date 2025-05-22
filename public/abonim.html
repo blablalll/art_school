@@ -1,0 +1,688 @@
+<!-- public/abonim.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Своими Руками - Абонементы</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .autocomplete-list {
+      position: absolute;
+      width: 100%;
+      border: 1px solid #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+      background: white;
+      z-index: 100;
+      list-style: none;
+      padding-left: 0;
+    }
+    .autocomplete-list li {
+      padding: 8px;
+      cursor: pointer;
+    }
+    .autocomplete-list li:hover {
+      background-color: #f0f0f0;
+    }
+     
+ .active-tag,
+.inactive-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  display: inline-block;
+  font-size: 12px;
+}
+.active-tag {
+  background-color: #5cb85c; /* Зелёный для "Активный" */
+}
+.inactive-tag {
+  background-color: #e98380; /* Красный для "Использован" */
+}
+  /* Стили для кнопок действий */
+  .clients-table button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0 3px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+  
+  .clients-table button:hover {
+    opacity: 0.7;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+  }
+  .filter-form button:hover {
+  background-color: #e1d4c1 !important; /* Бежевый при наведении */
+}
+.autocomplete-wrapper {
+  flex-grow: 1; /* Занимает всё доступное пространство */
+}
+
+#filterClientInput {
+  width: 100%; /* Растянуть на всю ширину родителя */
+}
+
+  </style>
+</head>
+<body>
+
+<!-- Шапка -->
+<div class="header">
+  <img src="/pictures/logo.jpg" alt="Логотип" style="height: 40px; margin-right: 15px;" />
+  <h1>Своими Руками</h1>
+  <!-- Приветствие справа -->
+  <div class="user-greeting" id="userGreeting">Загрузка...</div>
+</div>
+
+<!-- Меню -->
+<nav class="menu">
+  <a href="/schedule.html">Расписание</a>
+  <a href="/clients.html">Клиенты</a>
+  <a href="/teachers.html">Преподаватели</a>
+  <a href="/abonim.html" class="active">Абонементы</a>
+  <a href="/sections.html">Секции</a>
+  <a href="/records.html">Записи</a>
+  <a href="/login.html" class="logout-button">Выйти</a>
+</nav>
+
+<!-- Основной контент -->
+<div class="container">
+
+  <!-- Сообщения -->
+  <div id="toastContainer"></div>
+
+  <!-- Форма добавления абонемента -->
+  <div class="section-form">
+    <h3 id="formTitle">Добавить абонемент</h3>
+    <input type="hidden" id="abonimId" />
+    <div class="form-grid">
+      <!-- Клиент -->
+      <div class="input-group autocomplete-wrapper">
+        <label for="clientInput">Клиент</label>
+        <input type="text" id="clientInput" placeholder="Выберите клиента" autocomplete="off" oninput="handleClientInput(this.value)" onfocus="handleClientInput(this.value)" />
+        <ul id="clientSuggestions" class="autocomplete-list"></ul>
+        <input type="hidden" id="clientId" />
+      </div>
+
+      <!-- Дата начала -->
+      <div class="input-group">
+        <label for="startDate">Дата начала</label>
+        <input type="date" id="startDate" onchange="calculateEndDate()" />
+      </div>
+
+      <!-- Дата окончания -->
+      <div class="input-group">
+        <label for="endDate">Дата окончания</label>
+        <input type="date" id="endDate" disabled />
+      </div>
+
+      <!-- Количество занятий -->
+      <div class="input-group">
+        <label for="visitCount">Количество занятий</label>
+        <input type="number" id="visitCount" min="1" />
+      </div>
+    </div>
+
+    <!-- Кнопка сохранения -->
+  <div style="margin-top: 10px; margin-bottom: 30px;">
+  <button id="saveButton" onclick="addAbonim()" style="background-color: var(--secondary); color: black;">Добавить абонемент</button>
+</div>
+  </div>
+<!-- Форма фильтрации -->
+<div class="filter-form" style="margin-bottom: 20px;">
+  <h4>Фильтр</h4>
+  <div class="form-grid" style="grid-template-columns: repeat(3, 1fr) auto; gap: 10px;">
+    <!-- Клиент -->
+    <div class="autocomplete-wrapper">
+      <input type="text" id="filterClientInput" placeholder="Клиент" autocomplete="off"
+             oninput="handleFilterClientInput(this.value)" onfocus="handleFilterClientInput(this.value)" />
+      <ul id="filterClientSuggestions" class="autocomplete-list"></ul>
+      <input type="hidden" id="filterClientId" />
+    </div>
+    <!-- Дата от -->
+    <input type="date" id="filterDateFrom" placeholder="Дата от" onchange="loadAbonims()" />
+    <!-- Статус -->
+    <select id="filterStatus" onchange="loadAbonims()">
+      <option value="">Все статусы</option>
+      <option value="активен">Активен</option>
+      <option value="использован">Использован</option>
+    </select>
+    <!-- Кнопка сброса -->
+    <button onclick="resetFilters()" style="background-color: #c1c6f1;">Сбросить фильтры</button>
+  </div>
+</div>
+  <!-- Таблица абонементов -->
+  <table class="clients-table" style="margin-top: 30px;">
+    <thead>
+      <tr>
+      <th onclick="sortAbonims('id')">ID<span class="sort-indicator" id="sort-id">↕</span></th>
+<th onclick="sortAbonims('client_full_name')">Клиент<span class="sort-indicator" id="sort-client_full_name">↕</span></th>
+<th onclick="sortAbonims('startDate')">Начало<span class="sort-indicator" id="sort-startDate">↕</span></th>
+<th onclick="sortAbonims('endDate')">Окончание<span class="sort-indicator" id="sort-endDate">↕</span></th>
+<th onclick="sortAbonims('visited_count')">Посещено<span class="sort-indicator" id="sort-visited_count">↕</span></th>
+<th onclick="sortAbonims('status')">Статус<span class="sort-indicator" id="sort-status">↕</span></th>
+<th>Действия</th>
+      </tr>
+    </thead>
+    <tbody id="abonimList"></tbody>
+  </table>
+
+  <!-- Пагинация -->
+  <div class="pagination" id="pagination"></div>
+
+</div>
+
+<script>
+  // === Переменные состояния ===
+  let currentPage = 1;
+  const itemsPerPage = 10;
+  let sortField = "startDate";
+  let sortDirection = "asc";
+  let allClients = [];
+
+  // === Инициализация ===
+  document.addEventListener("DOMContentLoaded", async () => {
+    loadAbonims();
+    initAutocomplete();
+  });
+
+  // === Расчёт окончания абонемента ===
+  function calculateEndDate() {
+    const start = new Date(document.getElementById("startDate").value);
+    if (!start) return;
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    document.getElementById("endDate").value = end.toISOString().split("T")[0];
+  }
+
+  // === Автозаполнение клиентов ===
+  async function handleClientInput(query) {
+    const suggestions = document.getElementById("clientSuggestions");
+    suggestions.innerHTML = "";
+    if (!query.trim()) {
+      suggestions.classList.remove("show");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      const clients = Array.isArray(data.data) ? data.data : [];
+      if (clients.length === 0) {
+        suggestions.innerHTML = `<li style="color:#999; text-align:center">Не найдено</li>`;
+      } else {
+   clients.forEach(client => {
+  const li = document.createElement("li");
+  const fullName = client.fullName || client.full_name || 'Без имени'; // Добавляем обработку разных форматов
+  li.textContent = fullName;
+  li.dataset.id = client.id;
+  li.onclick = () => {
+    document.getElementById("clientInput").value = fullName;
+    document.getElementById("clientId").value = client.id;
+    suggestions.innerHTML = "";
+  };
+  suggestions.appendChild(li);
+});
+      }
+      suggestions.classList.add("show");
+    } catch (err) {
+      console.error("Ошибка при поиске клиентов:", err);
+      suggestions.innerHTML = `<li style="color:red;">Ошибка загрузки</li>`;
+    }
+  }
+
+  // === Добавление абонемента ===
+  async function addAbonim() {
+  const clientId = document.getElementById("clientId").value;
+  const startDate = document.getElementById("startDate").value;
+  const visitCount = document.getElementById("visitCount").value;
+
+  if (!clientId || !startDate || !visitCount) {
+    showToast("Заполните все поля", "error");
+    return;
+  }
+
+  try {
+    // Проверяем активные абонементы
+    const checkRes = await fetch(`/api/abonim?clientId=${clientId}&status=active`);
+    const checkData = await checkRes.json();
+    
+    if (checkData.data && checkData.data.length > 0) {
+      showToast("У клиента уже есть активный абонемент", "error");
+      return;
+    }
+
+    // Создаем новый абонемент
+    const res = await fetch("/api/abonim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        startDate,
+        visitCount
+      })
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "Ошибка");
+
+    showToast("Абонемент успешно добавлен");
+    clearForm();
+    loadAbonims();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+  // === Загрузка абонементов ===
+  async function loadAbonims(page = 1) {
+  try {
+    const url = new URL("/api/abonim", window.location.origin);
+    url.searchParams.append("page", page);
+    url.searchParams.append("limit", itemsPerPage);
+    url.searchParams.append("sort", sortField);
+    url.searchParams.append("order", sortDirection);
+
+    // Фильтры
+    let status = document.getElementById("filterStatus").value;
+    const dateFrom = document.getElementById("filterDateFrom").value;
+    const clientId = document.getElementById("filterClientId").value;
+
+    // Нормализация статуса
+    if (status) {
+      status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+      url.searchParams.append("status", status);
+    }
+    
+    if (dateFrom) url.searchParams.append("startDate", dateFrom);
+    if (clientId) url.searchParams.append("clientId", clientId);
+
+    const res = await fetch(url);
+    const data = await res.json();
+    renderAbonims(data);
+    updatePagination(data);
+  } catch (err) {
+    console.error("Ошибка загрузки абонементов:", err);
+    showToast("Ошибка загрузки данных", "error");
+  }
+}
+
+  // === Рендер таблицы ===
+ function renderAbonims(data) {
+  const tbody = document.getElementById("abonimList");
+  tbody.innerHTML = "";
+
+  if (!data.data || data.data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Нет записей</td></tr>`;
+    return;
+  }
+
+  data.data.forEach(abonim => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${abonim.id}</td>
+      <td>${abonim.clientFullName || abonim.client_full_name || 'Без имени'}</td>
+      <td>${new Date(abonim.start_date).toLocaleDateString()}</td>
+      <td>${new Date(abonim.end_date).toLocaleDateString()}</td>
+      <td>${abonim.visited_count}/${abonim.visit_count}</td>
+<td><span class="${abonim.status.toLowerCase() === 'активен' ? 'active-tag' : 'inactive-tag'}">${abonim.status}</span></td>
+      <td>
+        <button onclick="editAbonim(${abonim.id})">✏️</button>
+        <button onclick="deleteAbonim(${abonim.id})">🗑️</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+  // === Сортировка ===
+  function sortAbonims(field) {
+    if (sortField === field) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortField = field;
+      sortDirection = "asc";
+    }
+    updateSortIndicators();
+    currentPage = 1;
+    loadAbonims(currentPage);
+  }
+
+function updateSortIndicators() {
+  const indicators = document.querySelectorAll(".sort-indicator");
+  indicators.forEach(el => el.textContent = "↕");
+  const indicator = document.getElementById(`sort-${sortField}`);
+  if (indicator) {
+    indicator.textContent = sortDirection === "asc" ? "↑" : "↓";
+  }
+}
+
+  // === Пагинация ===
+  function updatePagination(data) {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+  const currentPage = data.currentPage || 1;
+  const totalPages = data.totalPages || 1;
+
+  // ← Стрелка "Назад" (всегда отображается)
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "←";
+  if (currentPage <= 1) {
+    prevBtn.disabled = true;
+    prevBtn.style.opacity = "0.5";
+  } else {
+    prevBtn.onclick = () => {
+      currentPage--;
+      loadAbonims(currentPage);
+    };
+  }
+  pagination.appendChild(prevBtn);
+
+  // Кнопки с номерами страниц
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+    if (i === currentPage) {
+      btn.disabled = true;
+    }
+    btn.onclick = () => {
+      currentPage = i;
+      loadAbonims(i);
+    };
+    pagination.appendChild(btn);
+  }
+
+  // → Стрелка "Вперед" (всегда отображается)
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "→";
+  if (currentPage >= totalPages) {
+    nextBtn.disabled = true;
+    nextBtn.style.opacity = "0.5";
+  } else {
+    nextBtn.onclick = () => {
+      currentPage++;
+      loadAbonims(currentPage);
+    };
+  }
+  pagination.appendChild(nextBtn);
+}
+
+  // === Уведомления ===
+  function showToast(message, type = "success") {
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    document.getElementById("toastContainer").appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }, 100);
+  }
+
+  // === Очистка формы ===
+  function clearForm() {
+    document.getElementById("clientInput").value = "";
+    document.getElementById("clientId").value = "";
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    document.getElementById("visitCount").value = "";
+    document.getElementById("abonimId").value = "";
+    document.getElementById("formTitle").textContent = "Добавить абонемент";
+    document.getElementById("saveButton").onclick = addAbonim;
+  }
+
+  // === Инициализация автозаполнения клиентов ===
+  function initAutocomplete() {
+    const input = document.getElementById("clientInput");
+    input.addEventListener("focus", async () => {
+      if (allClients.length === 0) await loadAllClients();
+    });
+  }
+
+  async function loadAllClients() {
+    try {
+      const res = await fetch("/api/clients", { credentials: "include" });
+      const data = await res.json();
+      allClients = Array.isArray(data.data) ? data.data : [];
+    } catch (e) {
+      console.error("Ошибка загрузки клиентов:", e);
+    }
+  }
+
+  // === Редактирование абонемента ===
+  async function editAbonim(id) {
+  try {
+    const res = await fetch(`/api/abonim/${id}`, {
+      method: "GET",
+      credentials: 'include'
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ошибка! Статус: ${res.status}`);
+    }
+
+    const abonimData = await res.json();
+
+    let abonim;
+    if (abonimData.success && abonimData.data) {
+      abonim = abonimData.data;
+    } else {
+      abonim = abonimData;
+    }
+
+    // Проверяем наличие client_full_name или аналога
+    if (!abonim || (!abonim.client_full_name && !abonim.clientFullName)) {
+      console.warn("Ответ от сервера:", abonim);
+      throw new Error("Не найдено имя клиента в данных абонемента");
+    }
+
+    // Заполняем поля формы
+    document.getElementById("clientInput").value = abonim.client_full_name || abonim.clientFullName;
+    document.getElementById("clientId").value = abonim.client_id;
+    document.getElementById("startDate").value = abonim.start_date?.split("T")[0];
+    calculateEndDate();
+    document.getElementById("visitCount").value = abonim.visit_count;
+    document.getElementById("abonimId").value = abonim.id;
+
+    // Меняем заголовок и текст кнопки
+    document.getElementById("formTitle").textContent = "Редактировать абонемент";
+    const saveButton = document.getElementById("saveButton");
+    saveButton.textContent = "Сохранить";
+    saveButton.onclick = function () {
+      saveEditedAbonim(id); // Передаем id для сохранения
+    };
+
+  } catch (err) {
+    console.error("Ошибка при редактировании:", err);
+    showToast(`Ошибка загрузки данных: ${err.message}`, "error");
+  }
+}
+  // === Удаление абонемента ===
+  async function deleteAbonim(id) {
+    if (!confirm("Удалить абонемент?")) return;
+    try {
+      const res = await fetch(`/api/abonim/${id}`, { method: "DELETE" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Ошибка");
+      showToast("Абонемент удален");
+      loadAbonims();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  }
+  async function handleFilterClientInput(query) {
+  const suggestions = document.getElementById("filterClientSuggestions");
+  suggestions.innerHTML = "";
+  if (!query.trim()) {
+    suggestions.classList.remove("show");
+    return;
+  }
+  try {
+    const res = await fetch(`/api/clients?search=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    const clients = Array.isArray(data.data) ? data.data : [];
+    if (clients.length === 0) {
+      suggestions.innerHTML = `<li style="color:#999; text-align:center">Не найдено</li>`;
+    } else {
+      clients.forEach(client => {
+        const li = document.createElement("li");
+        const fullName = client.fullName || client.full_name || 'Без имени';
+        li.textContent = fullName;
+        li.dataset.id = client.id;
+        li.onclick = () => {
+          document.getElementById("filterClientInput").value = fullName;
+          document.getElementById("filterClientId").value = client.id;
+          suggestions.innerHTML = "";
+          loadAbonims();
+        };
+        suggestions.appendChild(li);
+      });
+    }
+    suggestions.classList.add("show");
+  } catch (err) {
+    console.error("Ошибка при поиске клиентов:", err);
+    suggestions.innerHTML = `<li style="color:red;">Ошибка загрузки</li>`;
+  }
+}
+function resetFilters() {
+  // Очищаем значения фильтров
+  document.getElementById("filterStatus").value = "";
+  document.getElementById("filterDateFrom").value = "";
+  document.getElementById("filterClientInput").value = "";
+  document.getElementById("filterClientId").value = "";
+
+  // Сбрасываем текущую страницу и загружаем данные заново
+  currentPage = 1;
+  loadAbonims(currentPage);
+}
+async function saveEditedAbonim(id) {
+  const clientId = document.getElementById("clientId").value;
+  const startDate = document.getElementById("startDate").value;
+  const visitCount = document.getElementById("visitCount").value;
+
+  if (!clientId || !startDate || !visitCount) {
+    showToast("Заполните все поля", "error");
+    return;
+  }
+
+  const body = {
+    clientId,
+    startDate,
+    visitCount
+  };
+
+  try {
+    const res = await fetch(`/api/abonim/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(result.message || "Ошибка при сохранении");
+    }
+
+    showToast("Изменения сохранены");
+    clearForm();
+    loadAbonims(); // Обновляем список
+
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+async function getUserInfo() {
+    try {
+      const response = await fetch('/api/auth/check', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        sessionStorage.removeItem("isAuthenticated");
+        window.location.href = "/login.html";
+        return null;
+      }
+
+      const data = await response.json();
+      return data.user || null;
+
+    } catch (error) {
+      console.error('Ошибка получения данных пользователя:', error);
+      sessionStorage.removeItem("isAuthenticated");
+      window.location.href = "/login.html";
+      return null;
+    }
+  }
+
+  // Отображает приветствие в правом верхнем углу
+  function displayUserInfo(user) {
+    const greetingElement = document.getElementById('userGreeting');
+    if (!greetingElement) return;
+
+    let roleText = '';
+
+    if (user.role === 'admin') {
+      roleText = user.type === 'subadmin' ? 'младший администратор' : 'старший администратор';
+    } else {
+      roleText = user.role;
+    }
+
+    greetingElement.innerHTML = `Добро пожаловать, ${roleText}`;
+  }
+
+  // Скрывает пункты меню для младшего админа
+function toggleMenuVisibility(user) {
+  // Скрываем ссылки на преподавателей и секций
+  const teachersLink = document.querySelector('nav.menu a[href="/teachers.html"]');
+  const sectionsLink = document.querySelector('nav.menu a[href="/sections.html"]');
+
+  if (user && user.role === 'admin' && user.type === 'subadmin') {
+    if (teachersLink) teachersLink.style.display = 'none';
+    if (sectionsLink) sectionsLink.style.display = 'none';
+  }
+}
+
+  // Показывает уведомления только не для subadmin
+  window.showToast = function(message, type = "success") {
+    const toastContainer = document.getElementById("toastContainer");
+    if (!toastContainer) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }, 100);
+  };
+
+  // Загружаем данные при открытии страницы
+  document.addEventListener("DOMContentLoaded", async () => {
+    const user = await getUserInfo();
+    if (!user) return;
+
+    displayUserInfo(user);
+    toggleMenuVisibility(user);
+  });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,833 @@
+<!-- public/teachers.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Своими Руками - Преподаватели</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Шапка -->
+<div class="header">
+  <img src="/pictures/logo.jpg" alt="Логотип" style="height: 40px; margin-right: 15px;" />
+  <h1>Своими Руками</h1>
+  <!-- Приветствие справа -->
+  <div class="user-greeting" id="userGreeting">Добро пожаловать, старший администратор</div>
+</div>
+
+  
+  <!-- Меню -->
+  <nav class="menu">
+    <a href="/schedule.html">Расписание</a>
+    <a href="/clients.html">Клиенты</a>
+    <a href="/teachers.html" class="active">Преподаватели</a>
+    <a href="/abonim.html">Абонементы</a>
+    <a href="/sections.html">Секции</a>
+    <a href="/records.html">Записи</a>
+    <a href="/login.html" class="logout-button">Выйти</a>
+  </nav>
+  
+  <!-- Основной контент -->
+  <div class="container">
+    <!-- Сообщения (уведомления) -->
+    <div id="toastContainer"></div>
+    
+    <!-- Основной блок -->
+    <div class="main-content">
+      <!-- Форма добавления преподавателя -->
+      <div class="teacher-form">
+        <h3 id="formTitle">Добавить преподавателя</h3>
+        <input type="hidden" id="teacherId" />
+        
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="fullName">ФИО</label>
+            <input type="text" id="fullName" placeholder="Введите ФИО" required />
+          </div>
+          
+          <!-- Обновленный блок выбора секций -->
+          <div class="input-group autocomplete-wrapper">
+            <label for="sectionInput">Секции</label>
+            <input type="text" id="sectionInput" placeholder="Выберите или введите название" autocomplete="off" />
+            <ul id="sectionSuggestions" class="autocomplete-list"></ul>
+            <div id="selectedSections" class="selected-tags"></div>
+            <input type="hidden" id="sectionIds" />
+          </div>
+          
+          <div class="input-group">
+            <label for="phone">Телефон</label>
+            <input type="tel" id="phone" placeholder="Введите номер телефона" required />
+          </div>
+          
+          <div class="input-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Введите email" required />
+          </div>
+        </div>
+        
+        <!-- Кнопка сохранения -->
+        <div style="margin-top: 10px;">
+          <button id="saveButton" onclick="addTeacher()" style="background-color: var(--secondary); color: black;">Добавить преподавателя</button>
+        </div>
+      </div>
+      
+<!-- Фильтр преподавателей -->
+<div class="filter-section small-filter">
+  <div class="filter-header">
+    <h3>Фильтрация преподавателей</h3>
+  </div>
+  <div class="filter-row">
+    <div class="input-group autocomplete-wrapper" style="flex: 2;">
+      <input type="text" id="filterName" placeholder="Поиск по ФИО" oninput="filterTeachers()" />
+    </div>
+    <div class="input-group autocomplete-wrapper" style="flex: 2;">
+      <input type="text" id="filterSectionInput" placeholder="Фильтр по секциям" autocomplete="off" />
+      <ul id="filterSectionSuggestions" class="autocomplete-list"></ul>
+      <div id="selectedFilterSections" class="selected-tags"></div>
+      <input type="hidden" id="filterSectionIds" />
+    </div>
+    <button onclick="location.reload()" class="reset-button" style="height: 40px; margin-top: 18px;">
+  Сбросить фильтры
+</button>
+  </div>
+</div>
+      
+      <!-- Таблица преподавателей -->
+    <table class="teachers-table">
+  <thead>
+    <tr>
+      <th onclick="sortTeachers('id')">
+        ID 
+        <span class="sort-indicator" id="sort-id">↕</span>
+      </th>
+      <th onclick="sortTeachers('fullName')">
+        ФИО 
+        <span class="sort-indicator" id="sort-fullName">↕</span>
+      </th>
+      <th>Секции</th>
+      <th>Телефон</th>
+      <th>Email</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody id="teachersList"></tbody>
+</table>
+      
+      <!-- Пагинация -->
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <script>
+    function checkAuth() {
+  if (!sessionStorage.getItem("isAuthenticated")) {
+    window.location.href = "/login.html";
+  }
+}
+    // Инициализация проверки авторизации
+    function checkAuth() {
+      if (!sessionStorage.getItem("isAuthenticated")) {
+        window.location.href = "/login.html";
+      }
+    }
+    function showTeacherSuggestions(input, suggestionsContainer, teachers) {
+  if (!suggestionsContainer) return;
+  suggestionsContainer.innerHTML = "";
+
+  if (teachers.length === 0) {
+    suggestionsContainer.innerHTML = `<li style="color:#999; text-align:center">Ничего не найдено</li>`;
+    return;
+  }
+
+  teachers.forEach(teacher => {
+    const li = document.createElement("li");
+    li.textContent = teacher.fullName;
+    li.onclick = () => {
+      input.value = teacher.fullName;
+      document.getElementById("teacherId").value = teacher.id;
+      suggestionsContainer.innerHTML = "";
+    };
+    suggestionsContainer.appendChild(li);
+  });
+
+  suggestionsContainer.classList.add("show");
+}
+document.addEventListener("DOMContentLoaded", () => {
+  checkAuth();
+  initPhoneInput();
+  updateSortIndicators();
+  loadTeachers();
+  initAutocomplete();
+  initSectionFilterAutocomplete();
+});
+    // Инициализация поля телефона
+    function initPhoneInput() {
+      const phoneInput = document.getElementById("phone");
+      phoneInput.addEventListener("input", function(e) {
+        let phone = e.target.value.replace(/\D/g, '');
+        if (!phone.startsWith('7')) phone = '7' + phone;
+        phone = phone.substring(0, 11);
+        e.target.value = phone;
+      });
+    }
+    
+    // Переменные состояния
+let currentPage = 1;
+const itemsPerPage = 10;
+let sortField = "id";
+let sortDirection = "asc";
+let selectedSections = [];
+let filterSectionId = null;
+let allSections = [];
+
+    
+    // Загрузка преподавателей
+async function loadTeachers() {
+  try {
+    const url = new URL("/api/teachers", window.location.origin);
+    url.searchParams.append("page", currentPage);
+    url.searchParams.append("limit", itemsPerPage);
+    url.searchParams.append("sort", sortField);
+    url.searchParams.append("order", sortDirection);
+    
+    const nameFilter = document.getElementById("filterName").value;
+    if (nameFilter) {
+      url.searchParams.append("search", nameFilter);
+    }
+    
+    if (filterSectionId) {
+      url.searchParams.append("sectionId", filterSectionId);
+    }
+
+    const response = await fetch(url, { credentials: "include" });
+    if (response.status === 401) {
+      sessionStorage.removeItem("isAuthenticated");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Ошибка загрузки");
+
+    renderTeachers(data);
+    updatePagination(data);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+
+async function loadSectionOptions() {
+  try {
+    const res = await fetch("/api/sections?limit=100", { credentials: "include" });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.data)) {
+      allSections = data.data;
+      const select = document.getElementById("filterSectionSelect");
+      select.innerHTML = '<option value="">Все секции</option>';
+      allSections.forEach(section => {
+        const option = document.createElement("option");
+        option.value = section.id;
+        option.textContent = section.name;
+        select.appendChild(option);
+      });
+    } else {
+      throw new Error("Не удалось загрузить список секций");
+    }
+  } catch (error) {
+    showToast("Ошибка загрузки секций: " + error.message, "error");
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+  checkAuth();
+  initPhoneInput();
+  updateSortIndicators();
+  loadTeachers();
+  initAutocomplete();
+  initSectionFilterAutocomplete(); // Убедитесь, что эта строка есть
+  loadSectionOptions(); // ← Новая строка
+  
+});
+}
+async function initSectionFilterAutocomplete() {
+  const input = document.getElementById("filterSectionInput");
+  const suggestions = document.getElementById("filterSectionSuggestions");
+  let allSections = [];
+  
+  async function loadAllSections() {
+    const res = await fetch("/api/sections?limit=1000", { credentials: "include" }); // Увеличиваем лимит
+    const data = await res.json();
+    if (res.ok) allSections = data.data || [];
+  }
+  
+  function showSuggestions(filteredSections) {
+    suggestions.innerHTML = "";
+    if (filteredSections.length === 0) {
+      suggestions.innerHTML = `<li style="color:#999; text-align:center">Ничего не найдено</li>`;
+    } else {
+      filteredSections.forEach(section => {
+        const li = document.createElement("li");
+        li.textContent = section.name;
+        li.onclick = () => {
+          filterSectionId = section.id;
+          document.getElementById("selectedFilterSections").innerHTML = 
+            `<span class="tag">${section.name} <button onclick="clearSectionFilter()">×</button></span>`;
+          document.getElementById("filterSectionIds").value = section.id;
+          input.value = "";
+          suggestions.classList.remove("show");
+          filterTeachers();
+        };
+        suggestions.appendChild(li);
+      });
+    }
+    suggestions.classList.add("show");
+  }
+  
+  input.addEventListener("input", async (e) => {
+    if (allSections.length === 0) await loadAllSections();
+    const value = e.target.value.trim().toLowerCase();
+    const filtered = allSections.filter(s => s.name.toLowerCase().includes(value));
+    showSuggestions(filtered);
+  });
+  
+  input.addEventListener("focus", async () => {
+    if (allSections.length === 0) await loadAllSections();
+    showSuggestions(allSections);
+  });
+  
+  document.addEventListener("click", (e) => {
+    if (!input.parentElement.contains(e.target)) {
+      suggestions.classList.remove("show");
+    }
+  });
+  
+  await loadAllSections();
+}
+async function initTeacherAutocomplete() {
+  const input = document.getElementById("teacherInput");
+  const suggestions = document.getElementById("teacherSuggestions");
+
+  try {
+    // Добавлены параметры page и limit
+    const res = await fetch("/api/teachers?page=1&limit=100", { credentials: "include" });
+    if (!res.ok) throw new Error("Ошибка загрузки преподавателей");
+
+    const data = await res.json();
+    const teachers = data.data || [];
+
+    // Теперь в автозаполнении будет до 100 преподавателей
+    showTeacherSuggestions(input, suggestions, teachers);
+  } catch (error) {
+    showToast("Ошибка загрузки преподавателей: " + error.message, "error");
+  }
+}
+// Очистка фильтра по секциям
+function clearSectionFilter() {
+  filterSectionId = null;
+  document.getElementById("selectedFilterSections").innerHTML = "";
+  document.getElementById("filterSectionIds").value = "";
+  document.getElementById("filterSectionInput").value = "";
+  filterTeachers();
+}
+
+// В функции clearFilters добавьте вызов clearSectionFilter():
+function clearFilters() {
+  document.getElementById("filterName").value = "";
+  clearSectionFilter();
+  currentPage = 1;
+  loadTeachers();
+}
+async function initAutocomplete() {
+  const input = document.getElementById("sectionInput");
+  const suggestions = document.getElementById("sectionSuggestions");
+  let allSections = [];
+  
+  
+  function showSuggestions(filteredSections) {
+    suggestions.innerHTML = "";
+    if (filteredSections.length === 0) {
+      suggestions.innerHTML = `<li style="color:#999; text-align:center">Ничего не найдено</li>`;
+    } else {
+      filteredSections.forEach(section => {
+        const li = document.createElement("li");
+        li.textContent = section.name;
+        li.onclick = () => {
+          if (!selectedSections.some(s => s.id === section.id)) {
+            selectedSections.push(section);
+            document.getElementById("selectedSections").innerHTML += 
+              `<span class="tag">${section.name} <button onclick="removeSection(${section.id})">×</button></span>`;
+            document.getElementById("sectionIds").value = selectedSections.map(s => s.id).join(',');
+          }
+          input.value = "";
+          suggestions.classList.remove("show");
+        };
+        suggestions.appendChild(li);
+      });
+    }
+    suggestions.classList.add("show");
+  }
+  
+  input.addEventListener("input", async (e) => {
+    if (allSections.length === 0) await loadAllSections();
+    const value = e.target.value.trim().toLowerCase();
+    const filtered = allSections.filter(s => s.name.toLowerCase().includes(value));
+    showSuggestions(filtered);
+  });
+  
+  input.addEventListener("focus", async () => {
+    if (allSections.length === 0) await loadAllSections();
+    showSuggestions(allSections);
+  });
+  
+  document.addEventListener("click", (e) => {
+    if (!document.querySelector(".autocomplete-wrapper").contains(e.target)) {
+      suggestions.classList.remove("show");
+    }
+  });
+  
+  await loadAllSections();
+}
+    // Отрисовка преподавателей
+    function renderTeachers(data) {
+  const tbody = document.getElementById("teachersList");
+  tbody.innerHTML = "";
+  
+  if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="no-data">Нет данных о преподавателях</td></tr>`;
+    updatePagination(data);
+    return;
+  }
+  
+  data.data.forEach(teacher => {
+    const row = `
+      <tr>
+        <td>${teacher.id}</td>
+        <td>${teacher.fullName || "-"}</td>
+        <td>${teacher.sectionNames?.join(', ') || "-"}</td>
+        <td>${formatPhone(teacher.phone)}</td>
+        <td>${teacher.email || "-"}</td>
+        <td class="actions">
+          <button onclick="editTeacher(${teacher.id})" title="Редактировать">✏️</button>
+          <button onclick="deleteTeacher(${teacher.id})" title="Удалить">🗑️</button>
+        </td>
+      </tr>
+    `;
+    tbody.insertAdjacentHTML("beforeend", row);
+  });
+  
+  updatePagination(data);
+}
+    
+    // Добавление преподавателя
+    async function addTeacher() {
+      const fullName = document.getElementById("fullName").value.trim();
+      let phone = document.getElementById("phone").value.replace(/\D/g, '');
+      const email = document.getElementById("email").value.trim();
+      const sectionIds = document.getElementById("sectionIds").value.split(',').filter(Boolean);
+      
+      if (!fullName) return showToast("Введите ФИО", "error");
+      if (phone.length !== 11) return showToast("Телефон должен содержать ровно 11 цифр", "error");
+      if (email && !validateEmail(email)) return showToast("Неверный формат email", "error");
+      
+      try {
+        const response = await fetch("/api/teachers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName, phone, email, sectionIds }),
+          credentials: "include"
+        });
+        
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Ошибка сохранения");
+        
+        showToast(`Преподаватель "${fullName}" успешно добавлен`);
+        clearForm();
+        loadTeachers();
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+    }
+    
+    // Редактирование преподавателя
+   async function editTeacher(id) {
+  try {
+    // Сброс текущего редактирования
+    clearEditing();
+    clearForm();
+    
+    // Получаем данные преподавателя
+    const response = await fetch(`/api/teachers/${id}`, { credentials: "include" });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Ошибка загрузки данных преподавателя");
+    }
+    
+    const teacher = await response.json();
+    
+    // Проверяем, что получили данные
+    if (!teacher.data) {
+      throw new Error("Данные преподавателя не получены");
+    }
+    
+    const teacherData = teacher.data;
+    
+    // Заполняем поля формы
+    document.getElementById("fullName").value = teacherData.fullName || "";
+    document.getElementById("phone").value = teacherData.phone || "";
+    document.getElementById("email").value = teacherData.email || "";
+    
+    // Очищаем предыдущие секции
+    selectedSections = [];
+    document.getElementById("selectedSections").innerHTML = "";
+    document.getElementById("sectionIds").value = "";
+    
+    // Заполняем секции, если они есть
+    if (teacherData.sectionIds && teacherData.sectionIds.length > 0) {
+      // Проверяем, что у нас есть и IDs и названия
+      if (!teacherData.sectionNames || teacherData.sectionNames.length !== teacherData.sectionIds.length) {
+        console.warn("Несоответствие между IDs секций и их названиями");
+      }
+      
+      // Заполняем секции
+      teacherData.sectionIds.forEach((sectionId, index) => {
+        const sectionName = teacherData.sectionNames?.[index] || `Секция ${sectionId}`;
+        selectedSections.push({ id: sectionId, name: sectionName });
+        
+        // Добавляем тег секции
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.innerHTML = `${sectionName} <button onclick="removeSection(${sectionId})">×</button>`;
+        document.getElementById("selectedSections").appendChild(tag);
+      });
+      
+      // Устанавливаем значения hidden-поля
+      document.getElementById("sectionIds").value = teacherData.sectionIds.join(',');
+    }
+    
+    // Устанавливаем ID преподавателя и меняем интерфейс
+    document.getElementById("teacherId").value = teacherData.id;
+    document.getElementById("formTitle").textContent = "Редактирование преподавателя";
+    document.getElementById("saveButton").textContent = "Сохранить изменения";
+    document.getElementById("saveButton").onclick = () => saveTeacher(teacherData.id);
+    
+    // Подсвечиваем строку в таблице
+    const targetRow = Array.from(document.querySelectorAll("#teachersList tr"))
+      .find(row => parseInt(row.cells[0].textContent) === teacherData.id);
+      
+    if (targetRow) {
+      targetRow.classList.add("editing");
+      targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    
+  } catch (error) {
+    console.error("Ошибка при редактировании преподавателя:", error);
+    showToast(error.message, "error");
+  }
+}
+    
+    // Сохранение изменений преподавателя
+ async function saveTeacher(id) {
+  try {
+    // Собираем данные из формы
+    const fullName = document.getElementById("fullName").value.trim();
+    const phone = document.getElementById("phone").value.replace(/\D/g, '');
+    const email = document.getElementById("email").value.trim();
+    const sectionIds = document.getElementById("sectionIds").value.split(',').filter(Boolean).map(id => parseInt(id));
+
+    // Валидация данных
+    if (!fullName) {
+      showToast("Введите ФИО преподавателя", "error");
+      return;
+    }
+    
+    if (phone.length !== 11) {
+      showToast("Телефон должен содержать 11 цифр", "error");
+      return;
+    }
+    
+    if (email && !validateEmail(email)) {
+      showToast("Неверный формат email", "error");
+      return;
+    }
+
+    // Подготовка данных для отправки
+    const teacherData = {
+      fullName,
+      phone,
+      email,
+      sectionIds
+    };
+
+    // Отправка данных на сервер
+    const response = await fetch(`/api/teachers/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(teacherData),
+      credentials: "include"
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Ошибка сохранения");
+    }
+
+    // Обработка успешного сохранения
+    showToast("Изменения успешно сохранены", "success");
+    clearForm();
+    loadTeachers();
+    
+  } catch (error) {
+    console.error("Ошибка при сохранении:", error);
+    showToast(error.message, "error");
+  }
+}
+    
+    // Удаление преподавателя
+    async function deleteTeacher(id) {
+  if (!confirm("Вы уверены, что хотите удалить преподавателя?")) return;
+  
+  try {
+    const response = await fetch(`/api/teachers/${id}`, {
+      method: "DELETE",
+      credentials: "include"
+    });
+    
+    if (!response.ok) throw new Error("Ошибка удаления");
+    
+    showToast("Преподаватель успешно удален");
+    
+    // Проверяем, нужно ли перейти на предыдущую страницу
+    const tbody = document.getElementById("teachersList");
+    if (tbody.children.length === 1 && currentPage > 1) {
+      currentPage--;
+    }
+    
+    loadTeachers();
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+    
+    // Вспомогательные функции
+    function clearEditing() {
+      document.querySelectorAll(".teachers-table tr.editing").forEach(row => row.classList.remove("editing"));
+    }
+    
+    function clearForm() {
+      document.getElementById("fullName").value = "";
+      document.getElementById("phone").value = "";
+      document.getElementById("email").value = "";
+      document.getElementById("sectionInput").value = "";
+      document.getElementById("sectionIds").value = "";
+      document.getElementById("teacherId").value = "";
+      document.getElementById("formTitle").textContent = "Добавить преподавателя";
+      document.getElementById("saveButton").textContent = "Добавить преподавателя";
+      document.getElementById("saveButton").onclick = addTeacher;
+      document.getElementById("selectedSections").innerHTML = "";
+      selectedSections = [];
+      clearEditing();
+    }
+    
+    function formatPhone(phone) {
+      return phone?.replace(/(\d{1})(\d{3})(\d{3})(\d{2})(\d{2})/, "+$1 ($2) $3-$4-$5") || "-";
+    }
+    
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.getElementById("toastContainer").appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // Сортировка и фильтрация
+function sortTeachers(field) {
+  if (sortField === field) {
+    sortDirection = sortDirection === "asc" ? "desc" : "asc";
+  } else {
+    sortField = field;
+    sortDirection = "asc";
+  }
+  currentPage = 1; // ← Добавлено
+  updateSortIndicators();
+  loadTeachers();
+}
+
+function filterTeachers() {
+  currentPage = 1; // ← Убедитесь, что это есть
+  loadTeachers();
+}
+    
+    function updateSortIndicators() {
+  // Сбрасываем все индикаторы
+  document.querySelectorAll(".sort-indicator").forEach(el => {
+    el.textContent = "↕";
+    el.style.display = "inline";
+  });
+  
+  // Устанавливаем индикатор для активного поля сортировки
+  const indicator = document.getElementById(`sort-${sortField}`);
+  if (indicator) {
+    indicator.textContent = sortDirection === "asc" ? "↑" : "↓";
+  }
+}
+
+ function filterTeachers() {
+  currentPage = 1;
+  loadTeachers();
+}
+
+  function clearFilters() {
+  document.getElementById("filterName").value = "";
+  document.getElementById("filterSection").value = "";
+  filterSectionId = null;
+  currentPage = 1;
+  loadTeachers();
+}
+    
+    // Пагинация
+function updatePagination(data) {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+  
+  // Проверяем, есть ли данные для пагинации
+  if (!data.pagination || data.pagination.totalPages <= 1) {
+    return;
+  }
+
+  // Кнопка "Назад"
+  const prevButton = createPaginationButton("←", currentPage > 1, () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadTeachers();
+    }
+  });
+  pagination.appendChild(prevButton);
+  
+  // Показываем только несколько страниц вокруг текущей
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(data.pagination.totalPages, currentPage + 2);
+  
+  for (let page = startPage; page <= endPage; page++) {
+    const button = createPaginationButton(
+      page, 
+      page !== currentPage, 
+      () => {
+        currentPage = page;
+        loadTeachers();
+      }
+    );
+    if (page === currentPage) {
+      button.classList.add("active");
+    }
+    pagination.appendChild(button);
+  }
+  
+  // Кнопка "Вперед"
+  const nextButton = createPaginationButton("→", currentPage < data.pagination.totalPages, () => {
+    if (currentPage < data.pagination.totalPages) {
+      currentPage++;
+      loadTeachers();
+    }
+  });
+  pagination.appendChild(nextButton);
+}
+    
+    // Автозаполнение секций
+   async function initAutocomplete() {
+  const input = document.getElementById("sectionInput");
+  const suggestions = document.getElementById("sectionSuggestions");
+  let allSections = [];
+  
+  // Загрузка всех секций
+  async function loadAllSections() {
+    const res = await fetch("/api/sections?limit=1000", { credentials: "include" }); // Увеличиваем лимит
+    const data = await res.json();
+    if (res.ok) allSections = data.data || [];
+  }
+      
+      // Отображение предложений
+      function showSuggestions(filteredSections) {
+        suggestions.innerHTML = "";
+        if (filteredSections.length === 0) {
+          suggestions.innerHTML = `<li style="color:#999; text-align:center">Ничего не найдено</li>`;
+        } else {
+          filteredSections.forEach(section => {
+            const li = document.createElement("li");
+            li.textContent = section.name;
+            li.onclick = () => {
+              if (!selectedSections.some(s => s.id === section.id)) {
+                selectedSections.push(section);
+                document.getElementById("selectedSections").innerHTML += 
+                  `<span class="tag">${section.name} <button onclick="removeSection(${section.id})">×</button></span>`;
+                document.getElementById("sectionIds").value = selectedSections.map(s => s.id).join(',');
+              }
+              input.value = "";
+              suggestions.classList.remove("show");
+            };
+            suggestions.appendChild(li);
+          });
+        }
+        suggestions.classList.add("show");
+      }
+      
+      // Обработка ввода
+      input.addEventListener("input", async (e) => {
+        if (allSections.length === 0) await loadAllSections();
+        const value = e.target.value.trim().toLowerCase();
+        const filtered = allSections.filter(s => s.name.toLowerCase().includes(value));
+        showSuggestions(filtered);
+      });
+      
+      // Обработка фокуса
+      input.addEventListener("focus", async () => {
+        if (allSections.length === 0) await loadAllSections();
+        showSuggestions(allSections);
+      });
+      
+      // Закрытие при клике вне
+      document.addEventListener("click", (e) => {
+        if (!document.querySelector(".autocomplete-wrapper").contains(e.target)) {
+          suggestions.classList.remove("show");
+        }
+      });
+      
+      // Инициализация
+      await loadAllSections();
+    }
+    
+    // Удаление секции
+    window.removeSection = function(id) {
+      selectedSections = selectedSections.filter(s => s.id !== id);
+      document.getElementById("selectedSections").innerHTML = "";
+      
+      selectedSections.forEach(section => {
+        document.getElementById("selectedSections").innerHTML += 
+          `<span class="tag">${section.name} <button onclick="removeSection(${section.id})">×</button></span>`;
+      });
+      
+      document.getElementById("sectionIds").value = selectedSections.map(s => s.id).join(',');
+    }
+    function createPaginationButton(text, enabled, onClick) {
+  const button = document.createElement("button");
+  button.textContent = text;
+  button.className = "pagination-button";
+
+  if (!enabled) {
+    button.disabled = true;
+    button.classList.add("disabled");
+  } else {
+    button.onclick = onClick;
+  }
+
+  return button;
+}
+    // Инициализация автозаполнения
+  </script>
+</body>
+</html>
