@@ -280,10 +280,13 @@
 }
 
   // === Загрузка абонементов ===
-  async function loadAbonims(page = 1) {
+let totalPages = 1;
+
+// === Загрузка абонементов ===
+async function loadAbonims() {
   try {
     const url = new URL("/api/abonim", window.location.origin);
-    url.searchParams.append("page", page);
+    url.searchParams.append("page", currentPage);
     url.searchParams.append("limit", itemsPerPage);
     url.searchParams.append("sort", sortField);
     url.searchParams.append("order", sortDirection);
@@ -304,8 +307,9 @@
 
     const res = await fetch(url);
     const data = await res.json();
+    totalPages = data.totalPages || 1;
     renderAbonims(data);
-    updatePagination(data);
+    updatePagination();
   } catch (err) {
     console.error("Ошибка загрузки абонементов:", err);
     showToast("Ошибка загрузки данных", "error");
@@ -364,54 +368,47 @@ function updateSortIndicators() {
 }
 
   // === Пагинация ===
-  function updatePagination(data) {
+  function updatePagination() {
   const pagination = document.getElementById("pagination");
   pagination.innerHTML = "";
-  const currentPage = data.currentPage || 1;
-  const totalPages = data.totalPages || 1;
 
-  // ← Стрелка "Назад" (всегда отображается)
+  // Кнопка "Назад"
   const prevBtn = document.createElement("button");
   prevBtn.textContent = "←";
-  if (currentPage <= 1) {
-    prevBtn.disabled = true;
-    prevBtn.style.opacity = "0.5";
-  } else {
-    prevBtn.onclick = () => {
+  prevBtn.disabled = currentPage <= 1;
+  prevBtn.onclick = () => {
+    if (currentPage > 1) {
       currentPage--;
-      loadAbonims(currentPage);
-    };
-  }
+      loadAbonims();
+    }
+  };
   pagination.appendChild(prevBtn);
 
-  // Кнопки с номерами страниц
+  // Номера страниц
   for (let i = 1; i <= totalPages; i++) {
     const btn = document.createElement("button");
     btn.textContent = i;
-    if (i === currentPage) {
-      btn.disabled = true;
-    }
+    btn.disabled = i === currentPage;
     btn.onclick = () => {
       currentPage = i;
-      loadAbonims(i);
+      loadAbonims();
     };
     pagination.appendChild(btn);
   }
 
-  // → Стрелка "Вперед" (всегда отображается)
+  // Кнопка "Вперед"
   const nextBtn = document.createElement("button");
   nextBtn.textContent = "→";
-  if (currentPage >= totalPages) {
-    nextBtn.disabled = true;
-    nextBtn.style.opacity = "0.5";
-  } else {
-    nextBtn.onclick = () => {
+  nextBtn.disabled = currentPage >= totalPages;
+  nextBtn.onclick = () => {
+    if (currentPage < totalPages) {
       currentPage++;
-      loadAbonims(currentPage);
-    };
-  }
+      loadAbonims();
+    }
+  };
   pagination.appendChild(nextBtn);
 }
+
 
   // === Уведомления ===
   function showToast(message, type = "success") {

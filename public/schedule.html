@@ -331,15 +331,42 @@ document.addEventListener("DOMContentLoaded", async () => {
   let allFilterSections = [];
 
   // Загрузка данных
-  async function loadAllTeachers() {
-    try {
-      const res = await fetch("/api/teachers", { credentials: "include" });
+async function loadAllTeachers() {
+  try {
+    let currentPage = 1;
+    let totalPages = 1;
+    let allTeachersData = [];
+
+    while (currentPage <= totalPages) {
+      const res = await fetch(`/api/teachers?page=${currentPage}&limit=10`, { credentials: "include" });
+      if (!res.ok) throw new Error("Ошибка сети");
+
       const data = await res.json();
-      allTeachers = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : [];
-    } catch (e) {
-      console.error("Ошибка загрузки преподавателей:", e);
+
+      // Добавляем преподавателей из текущей страницы
+      const teachers = Array.isArray(data.data) ? data.data : [];
+      allTeachersData = [...allTeachersData, ...teachers];
+
+      // Обновляем общее количество страниц
+      totalPages = data.pagination?.totalPages || 1;
+
+      currentPage++;
     }
+
+    // Сохраняем всех преподавателей
+    allTeachers = allTeachersData;
+
+    // Обновляем автозаполнение, если оно есть
+    const filterInput = document.getElementById("filterTeacherInput");
+    const suggestions = document.getElementById("filterTeacherSuggestions");
+    if (filterInput && suggestions) {
+      showFilterTeacherSuggestions(allTeachers);
+    }
+  } catch (e) {
+    console.error("Ошибка загрузки преподавателей:", e);
+    showToast("Не удалось загрузить список преподавателей", "error");
   }
+}
 
   async function loadAllFilterSections() {
     try {
@@ -1242,16 +1269,42 @@ function highlightEditingRow(id) {
 
 
   // === Загрузка преподавателей для фильтра ===
-  async function loadAllTeachers() {
-    try {
-      const res = await fetch("/api/teachers", { credentials: "include" });
-      const data = await res.json();
-      allTeachers = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : [];
-    } catch (e) {
-      console.error("Ошибка загрузки преподавателей:", e);
-    }
-  }
+async function loadAllTeachers() {
+  try {
+    let currentPage = 1;
+    let totalPages = 1;
+    let allTeachersData = [];
 
+    while (currentPage <= totalPages) {
+      const res = await fetch(`/api/teachers?page=${currentPage}&limit=10`, { credentials: "include" });
+      if (!res.ok) throw new Error("Ошибка сети");
+
+      const data = await res.json();
+
+      // Добавляем преподавателей из текущей страницы
+      const teachers = Array.isArray(data.data) ? data.data : [];
+      allTeachersData = [...allTeachersData, ...teachers];
+
+      // Обновляем общее количество страниц
+      totalPages = data.pagination?.totalPages || 1;
+
+      currentPage++;
+    }
+
+    // Сохраняем всех преподавателей
+    allTeachers = allTeachersData;
+
+    // Обновляем автозаполнение, если оно есть
+    const filterInput = document.getElementById("filterTeacherInput");
+    const suggestions = document.getElementById("filterTeacherSuggestions");
+    if (filterInput && suggestions) {
+      showFilterTeacherSuggestions(allTeachers);
+    }
+  } catch (e) {
+    console.error("Ошибка загрузки преподавателей:", e);
+    showToast("Не удалось загрузить список преподавателей", "error");
+  }
+}
   // === Загрузка секций для фильтра ===
   async function loadAllFilterSections() {
     try {
@@ -1574,7 +1627,14 @@ function handleTeacherInput(query) {
     }
   }, 300);
 }
+document.addEventListener("click", function(event) {
+  const input = document.getElementById("filterTeacherInput");
+  const suggestions = document.getElementById("filterTeacherSuggestions");
 
+  if (!input.contains(event.target) && !suggestions.contains(event.target)) {
+    suggestions.classList.remove("show");
+  }
+});
 // === Закрытие списка вне клика ===
 function setupOutsideClickClose(wrapperClass, suggestionsId) {
   document.addEventListener("click", function (event) {
@@ -1585,7 +1645,14 @@ function setupOutsideClickClose(wrapperClass, suggestionsId) {
     }
   });
 }
+document.addEventListener("click", function(event) {
+  const input = document.getElementById("filterSectionInput");
+  const suggestions = document.getElementById("filterSectionSuggestions");
 
+  if (!input.contains(event.target) && !suggestions.contains(event.target)) {
+    suggestions.classList.remove("show");
+  }
+});
 setupOutsideClickClose(".autocomplete-wrapper.teacher", "#teacherSuggestions");
 </script>
 </body>
