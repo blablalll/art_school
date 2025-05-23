@@ -69,7 +69,14 @@ app.use((err, req, res, next) => {
       : err.message
   });
 });
-
+app.get('/api/pool-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ status: 'OK', dbTime: result.rows[0].now });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
