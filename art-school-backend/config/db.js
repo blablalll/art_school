@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 let pool;
 
 if (process.env.DATABASE_URL) {
-  // Для Render: используется DATABASE_URL
+  // Для Render
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
