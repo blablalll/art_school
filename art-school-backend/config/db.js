@@ -13,14 +13,13 @@ if (process.env.DATABASE_URL) {
   });
 } else {
   // Локальная разработка
-  const useSSL = false; // или true для продакшена
   pool = new Pool({
-    user: process.env.DB_USER || 'artuser',
+    user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'art_school',
-    password: process.env.DB_PASSWORD || '1234',
+    password: process.env.DB_PASSWORD || '1405',
     port: process.env.DB_PORT || 5432,
-    ssl: useSSL ? { mode: 'require', rejectUnauthorized: false } : false
+    ssl: false
   });
 }
 
