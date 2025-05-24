@@ -21,20 +21,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Сессии
 app.use(session({
-  store: new pgSessionStore({
-    pool: pool,
-    tableName: 'user_sessions',
-    createTableIfMissing: true // ← важно!
-  }),
-  secret: process.env.SESSION_SECRET || 'fallback-secret-key-for-dev',
+  secret: 'simple-dev-secret-123', // Для учебного проекта сойдёт
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  }
+  cookie: { secure: false } // Для HTTP (не HTTPS) в development
 }));
 
 // Роуты
@@ -68,7 +58,21 @@ app.get('/api/pool-test', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() AS db_time, current_user');
+    res.json({
+      status: 'OK',
+      db_time: result.rows[0].db_time,
+      user: result.rows[0].current_user
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: 'Database connection failed',
+      details: err.message
+    });
+  }
+});
 // Обработка ошибок
 app.use((err, req, res, next) => {
   console.error('[Ошибка сервера]:', err.stack);
