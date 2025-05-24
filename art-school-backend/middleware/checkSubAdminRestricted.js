@@ -1,3 +1,4 @@
+// middleware/checkSubAdminRestricted.js
 function checkSubAdminRestricted(req, res, next) {
   const user = req.session.user;
 
