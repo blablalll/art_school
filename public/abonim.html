@@ -34,11 +34,24 @@
   display: inline-block;
   font-size: 12px;
 }
-.active-tag {
-  background-color: #5cb85c; /* Зелёный для "Активный" */
+  .active-tag {
+    background-color: #5cb85c; /* Зеленый */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
 }
-.inactive-tag {
-  background-color: #e98380; /* Красный для "Использован" */
+  .inactive-tag {
+    background-color: #d9534f; /* Красный */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
+  
 }
   /* Стили для кнопок действий */
   .clients-table button {
@@ -66,6 +79,45 @@
 #filterClientInput {
   width: 100%; /* Растянуть на всю ширину родителя */
 }
+ .not-started-tag {
+    background-color: #5bc0de; /* Голубой */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
+  }
+  
+  .active-tag {
+    background-color: #5cb85c; /* Зеленый */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
+  }
+  
+  .inactive-tag {
+    background-color: #d9534f; /* Красный */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
+  }
+  
+  .expired-tag {
+    background-color: #d9534f; /* Красный */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: inline-block;
+  }
 
   </style>
 </head>
@@ -147,11 +199,13 @@
     <!-- Дата от -->
     <input type="date" id="filterDateFrom" placeholder="Дата от" onchange="loadAbonims()" />
     <!-- Статус -->
-    <select id="filterStatus" onchange="loadAbonims()">
-      <option value="">Все статусы</option>
-      <option value="активен">Активен</option>
-      <option value="использован">Использован</option>
-    </select>
+  <select id="filterStatus" onchange="loadAbonims()">
+  <option value="">Все статусы</option>
+  <option value="не начат">Не начат</option>
+  <option value="активен">Активен</option>
+  <option value="использован">Использован</option>
+  <option value="просрочен">Просрочен</option>
+</select>
     <!-- Кнопка сброса -->
     <button onclick="resetFilters()" style="background-color: #c1c6f1;">Сбросить фильтры</button>
   </div>
@@ -278,7 +332,23 @@
     showToast(err.message, "error");
   }
 }
-
+function sortAbonims(field) {
+  // Если сортируем по тому же полю - меняем направление
+  if (sortField === field) {
+    sortDirection = sortDirection === "asc" ? "desc" : "asc";
+  } 
+  // Если сортируем по новому полю - устанавливаем направление по умолчанию
+  else {
+    sortField = field;
+    sortDirection = "asc";
+  }
+  
+  // Обновляем индикаторы сортировки
+  updateSortIndicators();
+  
+  // Загружаем данные с новыми параметрами сортировки
+  loadAbonims();
+}
   // === Загрузка абонементов ===
 let totalPages = 1;
 
@@ -328,14 +398,42 @@ async function loadAbonims() {
 
   data.data.forEach(abonim => {
     const tr = document.createElement("tr");
+    
+    // Определяем класс и текст для статуса
+    let statusClass, statusText;
+    switch (abonim.status.toLowerCase()) {
+      case 'не начат':
+        statusClass = 'not-started-tag';
+        statusText = 'Не начат';
+        break;
+      case 'активен':
+        statusClass = 'active-tag';
+        statusText = 'Активен';
+        break;
+      case 'использован':
+        statusClass = 'inactive-tag';
+        statusText = 'Использован';
+        break;
+      case 'просрочен':
+        statusClass = 'expired-tag';
+        statusText = 'Просрочен';
+        break;
+      default:
+        statusClass = 'unknown-tag';
+        statusText = abonim.status;
+    }
 
+    // Форматируем даты
+    const startDate = new Date(abonim.start_date).toLocaleDateString('ru-RU');
+    const endDate = new Date(abonim.end_date).toLocaleDateString('ru-RU');
+    
     tr.innerHTML = `
       <td>${abonim.id}</td>
-      <td>${abonim.clientFullName || abonim.client_full_name || 'Без имени'}</td>
-      <td>${new Date(abonim.start_date).toLocaleDateString()}</td>
-      <td>${new Date(abonim.end_date).toLocaleDateString()}</td>
-      <td>${abonim.visited_count}/${abonim.visit_count}</td>
-<td><span class="${abonim.status.toLowerCase() === 'активен' ? 'active-tag' : 'inactive-tag'}">${abonim.status}</span></td>
+      <td>${abonim.client_full_name || abonim.clientFullName || 'Без имени'}</td>
+      <td>${startDate}</td>
+      <td>${endDate}</td>
+      <td>${abonim.visited_count || 0}/${abonim.visit_count}</td>
+      <td><span class="${statusClass}">${statusText}</span></td>
       <td>
         <button onclick="editAbonim(${abonim.id})">✏️</button>
         <button onclick="deleteAbonim(${abonim.id})">🗑️</button>
@@ -345,22 +443,14 @@ async function loadAbonims() {
     tbody.appendChild(tr);
   });
 }
-  // === Сортировка ===
-  function sortAbonims(field) {
-    if (sortField === field) {
-      sortDirection = sortDirection === "asc" ? "desc" : "asc";
-    } else {
-      sortField = field;
-      sortDirection = "asc";
-    }
-    updateSortIndicators();
-    currentPage = 1;
-    loadAbonims(currentPage);
-  }
 
 function updateSortIndicators() {
-  const indicators = document.querySelectorAll(".sort-indicator");
-  indicators.forEach(el => el.textContent = "↕");
+  // Сбрасываем все индикаторы
+  document.querySelectorAll(".sort-indicator").forEach(el => {
+    el.textContent = "↕";
+  });
+  
+  // Устанавливаем индикатор для текущего поля сортировки
   const indicator = document.getElementById(`sort-${sortField}`);
   if (indicator) {
     indicator.textContent = sortDirection === "asc" ? "↑" : "↓";
